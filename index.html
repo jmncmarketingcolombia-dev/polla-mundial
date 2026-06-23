@@ -962,16 +962,29 @@ function initQR(){
   if(qrGenerated) return; qrGenerated=true;
   var url=window.location.href;
   $('qrUrlText').textContent=url;
-  var qrUrl='https://chart.googleapis.com/chart?cht=qr&chs=220x220&chl='+encodeURIComponent(url)+'&choe=UTF-8&chld=M|2';
-  var img=document.createElement('img');
-  img.src=qrUrl;
-  img.alt='QR Code';
-  img.style.cssText='border-radius:12px;display:block;width:220px;height:220px';
-  img.onerror=function(){
-    $('qrcode').innerHTML='<p style="color:#666;font-size:12px;word-break:break-all">'+url+'</p>';
+  // Cargar qrcode.js desde jsDelivr (CDN confiable, no bloqueado)
+  var s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+  s.onload=function(){
+    var canvas=document.createElement('canvas');
+    QRCode.toCanvas(canvas, url, {
+      width:220, margin:2,
+      color:{dark:'#0D1B2A', light:'#ffffff'}
+    }, function(err){
+      if(err){
+        fallbackQR(url); return;
+      }
+      canvas.style.borderRadius='12px';
+      $('qrcode').innerHTML='';
+      $('qrcode').appendChild(canvas);
+    });
   };
-  $('qrcode').innerHTML='';
-  $('qrcode').appendChild(img);
+  s.onerror=function(){ fallbackQR(url); };
+  document.head.appendChild(s);
+}
+function fallbackQR(url){
+  // Si falla todo, mostrar URL con instrucción de copiar
+  $('qrcode').innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;text-align:center;max-width:220px;margin:0 auto"><div style="font-size:11px;color:#0D1B2A;word-break:break-all;line-height:1.6"><strong>Copia este enlace:</strong><br>'+url+'</div></div>';
 }
 function copyUrl(){
   var url=window.location.href;
