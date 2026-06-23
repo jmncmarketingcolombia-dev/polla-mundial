@@ -357,7 +357,10 @@ input[type="number"]:focus{border-color:var(--amarillo);box-shadow:0 0 0 3px rgb
     <!-- APUESTAS LIST -->
     <div style="margin-top:28px">
       <div class="section-title">Apuestas Registradas</div>
-      <p class="section-sub">Lo que predicen los participantes.</p>
+      <p class="section-sub">Los marcadores son secretos hasta que termine el partido. 🤫</p>
+      <div style="background:rgba(245,197,24,.07);border:1px solid rgba(245,197,24,.15);border-radius:12px;padding:10px 16px;margin-bottom:16px;font-size:12px;color:var(--amarillo);display:flex;align-items:center;gap:8px">
+        🔒 Los marcadores están ocultos — se revelan al calcular el escalafón
+      </div>
       <div id="betsCount" class="bets-count hidden"><span id="betsNum">0</span> apuestas · Bote: <span id="boteSmall">$0</span></div>
       <div class="bets-list" id="betsList">
         <div class="empty"><div class="empty-icon">🎯</div><div class="empty-text">Aún no hay apuestas. ¡Sé el primero!</div></div>
@@ -627,6 +630,16 @@ async function loadAll(){
     adminBase = configDoc.base || 0;
   }
 
+  // Limpiar apuestas de prueba (Juan Narva*)
+  var cleaned = bets.filter(function(b){
+    var n=(b.name||'').toLowerCase();
+    return !n.includes('juan narva') && !n.includes('prueba') && !n.includes('test');
+  });
+  if(cleaned.length !== bets.length){
+    bets = cleaned;
+    fsSet('bets', {list: bets, updatedAt: Date.now()});
+  }
+
   renderBets();
   renderBote();
   fetchMatchData();
@@ -822,12 +835,9 @@ function renderBets(){
     list.innerHTML='<div class="empty"><div class="empty-icon">🎯</div><div class="empty-text">Aún no hay apuestas. ¡Sé el primero!</div></div>';
     return;
   }
+  // Solo mostrar nombre y hora — marcador oculto para generar intriga 🔒
   list.innerHTML=bets.map(function(b){
-    var scorersHtml='';
-    if(b.scorerCol||b.scorerCon){
-      scorersHtml='<div class="bet-scorers">'+(b.scorerCol?'<span>⚽🇨🇴 '+b.scorerCol+'</span>':'')+(b.scorerCon?'<span>⚽🇨🇩 '+b.scorerCon+'</span>':'')+'</div>';
-    }
-    return '<div class="bet-card"><div class="bet-card-main"><div class="bet-user"><div class="avatar" style="background:'+getColor(b.name)+'">'+getInitials(b.name)+'</div><div><div class="user-name">'+b.name+'</div><div class="user-meta">'+timeAgo(b.ts)+' · '+fmt(b.valor||VALOR_FIJO)+'</div></div></div><div class="bet-score">🇨🇴 '+b.col+' – '+b.con+' 🇨🇩</div></div>'+scorersHtml+'</div>';
+    return '<div class="bet-card"><div class="bet-card-main"><div class="bet-user"><div class="avatar" style="background:'+getColor(b.name)+'">'+getInitials(b.name)+'</div><div><div class="user-name">'+b.name+'</div><div class="user-meta">'+timeAgo(b.ts)+' · '+fmt(b.valor||VALOR_FIJO)+'</div></div></div><div class="bet-score" style="filter:blur(6px);user-select:none;letter-spacing:2px;color:var(--gris)">🔒 ?–?</div></div></div>';
   }).join('');
 }
 
