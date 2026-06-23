@@ -962,7 +962,16 @@ function initQR(){
   if(qrGenerated) return; qrGenerated=true;
   var url=window.location.href;
   $('qrUrlText').textContent=url;
-  $('qrcode').innerHTML='<div style="background:#fff;border-radius:10px;padding:20px 12px;text-align:center;max-width:220px;margin:0 auto"><div style="font-size:32px;margin-bottom:8px">🔗</div><div style="font-size:11px;color:#0D1B2A;word-break:break-all;line-height:1.5">'+url+'</div></div>';
+  var qrUrl='https://chart.googleapis.com/chart?cht=qr&chs=220x220&chl='+encodeURIComponent(url)+'&choe=UTF-8&chld=M|2';
+  var img=document.createElement('img');
+  img.src=qrUrl;
+  img.alt='QR Code';
+  img.style.cssText='border-radius:12px;display:block;width:220px;height:220px';
+  img.onerror=function(){
+    $('qrcode').innerHTML='<p style="color:#666;font-size:12px;word-break:break-all">'+url+'</p>';
+  };
+  $('qrcode').innerHTML='';
+  $('qrcode').appendChild(img);
 }
 function copyUrl(){
   var url=window.location.href;
