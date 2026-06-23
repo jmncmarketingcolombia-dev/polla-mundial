@@ -375,22 +375,35 @@ input[type="number"]:focus{border-color:var(--amarillo);box-shadow:0 0 0 3px rgb
       <div class="result-title">⚽ Resultado del Partido</div>
       <div id="autoFilledBanner" class="auto-filled-banner hidden">🔌 Datos tomados automáticamente de la API FIFA en tiempo real</div>
       <div id="resultActiveBanner" class="result-active-banner hidden">✅ Resultado: <strong id="resultDisplay"></strong></div>
-      <div class="result-inputs">
-        <div><span style="display:block;text-align:center;font-size:18px;margin-bottom:5px">🇨🇴</span><input type="number" id="realCol" min="0" max="20" placeholder="0"></div>
-        <div class="score-sep" style="padding-bottom:0">—</div>
-        <div><span style="display:block;text-align:center;font-size:18px;margin-bottom:5px">🇨🇩</span><input type="number" id="realCon" min="0" max="20" placeholder="0"></div>
-      </div>
-      <div class="result-scorers-row">
-        <div class="scorer-field">
-          <span class="scorer-label">🇨🇴 Goleador real Colombia</span>
-          <input type="text" class="scorer-input" id="realScorerCol" placeholder="Nombre del goleador">
-        </div>
-        <div class="scorer-field">
-          <span class="scorer-label">🇨🇩 Goleador real Congo</span>
-          <input type="text" class="scorer-input" id="realScorerCon" placeholder="Nombre del goleador">
+
+      <!-- ADMIN LOCK para resultado -->
+      <div id="resultLock" style="background:rgba(245,197,24,.07);border:1px solid rgba(245,197,24,.2);border-radius:12px;padding:16px;margin-bottom:12px">
+        <p style="font-size:12px;color:var(--gris);margin-bottom:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">🔒 Solo el administrador puede ingresar el resultado</p>
+        <div style="display:flex;gap:8px">
+          <input type="password" id="resultPassInput" placeholder="Contraseña admin" style="flex:1;background:rgba(13,27,42,.8);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:10px 14px;color:var(--blanco);font-size:14px;font-family:Inter,sans-serif;outline:none">
+          <button onclick="unlockResult()" style="background:var(--amarillo);color:var(--azul-noche);border:none;border-radius:9px;padding:10px 18px;font-size:13px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">Entrar</button>
         </div>
       </div>
-      <button class="btn-result" onclick="calculateResults()">🏆 Calcular Ganadores</button>
+
+      <!-- FORMULARIO resultado — oculto hasta autenticar -->
+      <div id="resultForm" style="display:none">
+        <div class="result-inputs">
+          <div><span style="display:block;text-align:center;font-size:18px;margin-bottom:5px">🇨🇴</span><input type="number" id="realCol" min="0" max="20" placeholder="0"></div>
+          <div class="score-sep" style="padding-bottom:0">—</div>
+          <div><span style="display:block;text-align:center;font-size:18px;margin-bottom:5px">🇨🇩</span><input type="number" id="realCon" min="0" max="20" placeholder="0"></div>
+        </div>
+        <div class="result-scorers-row">
+          <div class="scorer-field">
+            <span class="scorer-label">🇨🇴 Goleador real Colombia</span>
+            <input type="text" class="scorer-input" id="realScorerCol" placeholder="Nombre del goleador">
+          </div>
+          <div class="scorer-field">
+            <span class="scorer-label">🇨🇩 Goleador real Congo</span>
+            <input type="text" class="scorer-input" id="realScorerCon" placeholder="Nombre del goleador">
+          </div>
+        </div>
+        <button class="btn-result" onclick="calculateResults()">🏆 Calcular Ganadores</button>
+      </div>
     </div>
 
     <div id="podiumSection" style="display:none">
@@ -713,7 +726,15 @@ var TABS=['apostar','resultados','reglas','qr'];
 function showTab(tab){
   TABS.forEach(function(t){ $('tab-'+t).classList.toggle('hidden',t!==tab); });
   document.querySelectorAll('.tab-btn').forEach(function(b,i){ b.classList.toggle('active',TABS[i]===tab); });
-  if(tab==='resultados') renderResults();
+  if(tab==='resultados'){
+    renderResults();
+    // Reset lock each time tab opens (security)
+    if($('resultLock') && !realResult){
+      $('resultLock').style.display='block';
+      $('resultForm').style.display='none';
+      if($('resultPassInput')) $('resultPassInput').value='';
+    }
+  }
   if(tab==='qr') initQR();
 }
 
@@ -923,6 +944,26 @@ function unlockAdmin(){
     showToast('⚠️ Contraseña incorrecta',true);
   }
 }
+function unlockResult(){
+  var entered = $('resultPassInput').value;
+  var correct = localStorage.getItem('pollaWC26_adminPass') || 'colombia2026';
+  if(entered === correct){
+    $('resultLock').style.display = 'none';
+    $('resultForm').style.display = 'block';
+    // Si ya hay resultado guardado, rellenar campos
+    if(realResult){
+      $('realCol').value = realResult.col;
+      $('realCon').value = realResult.con;
+      $('realScorerCol').value = realResult.scorerCol || '';
+      $('realScorerCon').value = realResult.scorerCon || '';
+    }
+  } else {
+    $('resultPassInput').style.borderColor = '#e74c3c';
+    setTimeout(function(){ $('resultPassInput').style.borderColor = ''; }, 1500);
+    showToast('⚠️ Contraseña incorrecta', true);
+  }
+}
+
 async function saveAdmin(){
   var val=parseInt($('baseInput').value)||0;
   adminBase=val;
