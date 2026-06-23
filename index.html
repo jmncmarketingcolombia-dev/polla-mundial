@@ -285,7 +285,8 @@ input[type="number"]:focus{border-color:var(--amarillo);box-shadow:0 0 0 3px rgb
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="saveAdmin()" style="flex:1;background:var(--amarillo);color:var(--azul-noche);border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">💾 Guardar Base</button>
-          <button onclick="clearAllBets()" style="flex:1;background:rgba(231,76,60,.15);color:#e74c3c;border:1px solid rgba(231,76,60,.3);border-radius:10px;padding:12px;font-size:13px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">🗑️ Borrar todas las apuestas</button>
+          <button onclick="clearAllBets()" style="flex:1;background:rgba(231,76,60,.15);color:#e74c3c;border:1px solid rgba(231,76,60,.3);border-radius:10px;padding:12px;font-size:13px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">🗑️ Borrar apuestas</button>
+          <button onclick="clearResult()" style="flex:1;background:rgba(231,76,60,.15);color:#e74c3c;border:1px solid rgba(231,76,60,.3);border-radius:10px;padding:12px;font-size:13px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">🗑️ Borrar resultado</button>
         </div>
         <div id="adminMsg" style="font-size:12px;margin-top:10px;display:none"></div>
       </div>
@@ -619,7 +620,7 @@ async function loadAll(){
     bets = betsDoc.list;
     lastBetTs = betsDoc.updatedAt || 0;
   }
-  if(resultDoc && resultDoc.col !== undefined){
+  if(resultDoc && resultDoc.col !== undefined && !resultDoc.cleared){
     realResult = resultDoc;
   }
   if(configDoc && configDoc.base !== undefined){
@@ -655,7 +656,7 @@ function startPolling(){
     }
     // También verificar resultado
     var resultDoc = await fsGet('result');
-    if(resultDoc && resultDoc.col !== undefined && !realResult){
+    if(resultDoc && resultDoc.col !== undefined && !resultDoc.cleared && !realResult){
       realResult = resultDoc;
       $('heroScore').textContent = realResult.col + ' — ' + realResult.con;
       fetchMatchData();
@@ -727,13 +728,13 @@ function showTab(tab){
   TABS.forEach(function(t){ $('tab-'+t).classList.toggle('hidden',t!==tab); });
   document.querySelectorAll('.tab-btn').forEach(function(b,i){ b.classList.toggle('active',TABS[i]===tab); });
   if(tab==='resultados'){
-    renderResults();
-    // Reset lock each time tab opens (security)
-    if($('resultLock') && !realResult){
+    // Siempre mostrar el candado primero al abrir la tab
+    if($('resultLock')){
       $('resultLock').style.display='block';
       $('resultForm').style.display='none';
       if($('resultPassInput')) $('resultPassInput').value='';
     }
+    renderResults();
   }
   if(tab==='qr') initQR();
 }
@@ -872,8 +873,7 @@ function renderResults(){
   var podiumSection=$('podiumSection'),noMsg=$('noResultMsg');
   var banner=$('resultActiveBanner'),autoB=$('autoFilledBanner'),tieBanner=$('tieBanner');
   if(realResult){
-    $('realCol').value=realResult.col; $('realCon').value=realResult.con;
-    $('realScorerCol').value=realResult.scorerCol||''; $('realScorerCon').value=realResult.scorerCon||'';
+    // Solo mostrar el banner informativo, NO llenar los campos (están bloqueados)
     banner.classList.remove('hidden');
     var txt='Colombia '+realResult.col+' – '+realResult.con+' Congo';
     if(realResult.scorerCol) txt+=' · 🇨🇴 '+realResult.scorerCol;
@@ -950,13 +950,14 @@ function unlockResult(){
   if(entered === correct){
     $('resultLock').style.display = 'none';
     $('resultForm').style.display = 'block';
-    // Si ya hay resultado guardado, rellenar campos
+    // Llenar campos solo después de autenticar
     if(realResult){
       $('realCol').value = realResult.col;
       $('realCon').value = realResult.con;
       $('realScorerCol').value = realResult.scorerCol || '';
       $('realScorerCon').value = realResult.scorerCon || '';
     }
+    showToast('✅ Acceso admin concedido');
   } else {
     $('resultPassInput').style.borderColor = '#e74c3c';
     setTimeout(function(){ $('resultPassInput').style.borderColor = ''; }, 1500);
@@ -982,6 +983,19 @@ function changePass(){
   $('newPassInput').value='';
   showToast('✅ Contraseña actualizada');
 }
+async function clearResult(){
+  if(!confirm('¿Borrar el resultado del partido?')) return;
+  realResult = null;
+  await fsSet('result', {cleared: true});
+  $('heroScore').textContent = '? — ?';
+  $('liveStatusDot').className = 'live-dot scheduled-dot';
+  $('liveStatusDot').textContent = '⏰ PRÓXIMO · Hoy 21:00 COT';
+  $('resultActiveBanner').classList.add('hidden');
+  $('podiumSection').style.display = 'none';
+  $('noResultMsg').classList.remove('hidden');
+  showToast('🗑️ Resultado borrado');
+}
+
 async function clearAllBets(){
   if(!confirm('¿Borrar TODAS las apuestas?')) return;
   bets=[];
