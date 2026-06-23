@@ -958,33 +958,20 @@ async function clearAllBets(){
 //  QR
 // ════════════════════════════════════
 var qrGenerated=false;
+// QR pre-generado para: https://jmncmarketingcolombia-dev.github.io/polla-mundial/
+var QR_DATA_URL = 'data:image/png;base64,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';
 function initQR(){
   if(qrGenerated) return; qrGenerated=true;
-  var url=window.location.href;
-  $('qrUrlText').textContent=url;
-  // Cargar qrcode.js desde jsDelivr (CDN confiable, no bloqueado)
-  var s=document.createElement('script');
-  s.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
-  s.onload=function(){
-    var canvas=document.createElement('canvas');
-    QRCode.toCanvas(canvas, url, {
-      width:220, margin:2,
-      color:{dark:'#0D1B2A', light:'#ffffff'}
-    }, function(err){
-      if(err){
-        fallbackQR(url); return;
-      }
-      canvas.style.borderRadius='12px';
-      $('qrcode').innerHTML='';
-      $('qrcode').appendChild(canvas);
-    });
-  };
-  s.onerror=function(){ fallbackQR(url); };
-  document.head.appendChild(s);
+  $('qrUrlText').textContent=window.location.href;
+  var img=document.createElement('img');
+  img.src=QR_DATA_URL;
+  img.alt='QR Code';
+  img.style.cssText='border-radius:12px;display:block;width:220px;height:220px';
+  $('qrcode').innerHTML='';
+  $('qrcode').appendChild(img);
 }
 function fallbackQR(url){
-  // Si falla todo, mostrar URL con instrucción de copiar
-  $('qrcode').innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;text-align:center;max-width:220px;margin:0 auto"><div style="font-size:11px;color:#0D1B2A;word-break:break-all;line-height:1.6"><strong>Copia este enlace:</strong><br>'+url+'</div></div>';
+  $('qrcode').innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;text-align:center;max-width:220px;margin:0 auto"><div style="font-size:11px;color:#0D1B2A;word-break:break-all;line-height:1.6"><strong>Enlace:</strong><br>'+url+'</div></div>';
 }
 function copyUrl(){
   var url=window.location.href;
