@@ -763,9 +763,13 @@ function renderBote(){
   $('boteSub').textContent=bets.length+' participante'+(bets.length!==1?'s':'')+baseTxt;
   $('boteSmall').textContent=fmt(total);
   $('betsNum').textContent=bets.length;
-  var prizes=DIST.map(function(p,i){return {pos:['🥇 1°','🥈 2°','🥉 3°'][i],val:Math.floor(total*p)};});
+  var nb=bets.length;
+  var dd=nb<=1?[1.0]:nb===2?[0.7,0.3]:[0.6,0.3,0.1];
+  var labels=['🥇 1°','🥈 2°','🥉 3°'];
+  var colors=['var(--oro)','var(--plata)','var(--bronce)'];
+  var prizes=dd.map(function(p,i){return {pos:labels[i],val:Math.floor(total*p),pct:Math.round(p*100)};});
   $('boteDist').innerHTML=prizes.map(function(p,i){
-    return '<div class="bote-prize"><span class="bote-prize-label">'+p.pos+' lugar</span><div class="bote-prize-val" style="color:'+['var(--oro)','var(--plata)','var(--bronce)'][i]+'">'+fmt(p.val)+'</div></div>';
+    return '<div class="bote-prize"><span class="bote-prize-label">'+p.pos+' ('+p.pct+'%)</span><div class="bote-prize-val" style="color:'+colors[i]+'">'+fmt(p.val)+'</div></div>';
   }).join('');
 }
 
@@ -888,6 +892,13 @@ function renderResults(){
   var ranked=bets.map(function(b){return Object.assign({},b,{result:calcPoints(b,realResult)});})
     .sort(function(a,b){return b.result.pts-a.result.pts||a.ts-b.ts;});
 
+  // Distribución dinámica según número de participantes
+  var n = ranked.length;
+  var dynDist;
+  if(n === 1)      dynDist = [1.0];               // 1 solo → 100%
+  else if(n === 2) dynDist = [0.7, 0.3];           // 2 → 70/30
+  else             dynDist = [0.6, 0.3, 0.1];      // 3+ → 60/30/10
+
   var groups=[],i=0;
   while(i<ranked.length){
     var j=i;
@@ -897,19 +908,22 @@ function renderResults(){
   var tieMessages=[],posAccum=0;
   groups.forEach(function(grp){
     var startPos=posAccum,prizeTotal=0;
-    for(var k=startPos;k<=Math.min(startPos+grp.length-1,2);k++) prizeTotal+=Math.floor(total*DIST[k]);
+    for(var k=startPos;k<=Math.min(startPos+grp.length-1,dynDist.length-1);k++) prizeTotal+=Math.floor(total*dynDist[k]);
     var prizeEach=grp.length>1&&prizeTotal>0?Math.floor(prizeTotal/grp.length):prizeTotal;
     grp.forEach(function(p){p._prizeEach=prizeEach;p._tieCount=grp.length;p._posStart=startPos;});
-    if(grp.length>1&&startPos<=2&&prizeTotal>0)
+    if(grp.length>1&&startPos<dynDist.length&&prizeTotal>0)
       tieMessages.push('<strong style="color:var(--amarillo)">'+grp.length+' personas</strong> con '+grp[0].result.pts+' pts comparten el '+['1°','2°','3°'][startPos]+' lugar → cada una recibe <strong style="color:var(--verde-claro)">'+fmt(prizeEach)+'</strong>');
     posAccum+=grp.length;
   });
   tieBanner.classList.toggle('hidden',!tieMessages.length);
   if(tieMessages.length) tieBanner.innerHTML='<div class="tie-title">🤝 Empate</div><div class="tie-names">'+tieMessages.join('<br>')+'</div>';
 
-  var top3=ranked.slice(0,3);
+  var nn=ranked.length;
+  var podiumCount=Math.min(nn,3);
+  var top3=ranked.slice(0,podiumCount);
   var classes=['second','first','third'],medals=['🥈','🥇','🥉'],labelsP=['2° Lugar','1° Lugar','3° Lugar'];
-  var order=top3.length===1?[0]:top3.length===2?[0,1]:[1,0,2];
+  // Si hay 1: mostrar solo 1er lugar centrado. Si hay 2: mostrar 1° y 2°.
+  var order=top3.length===1?[0]:top3.length===2?[1,0]:[1,0,2];
   $('podium').innerHTML=order.map(function(i){
     if(!top3[i]) return '';
     var p=top3[i];
