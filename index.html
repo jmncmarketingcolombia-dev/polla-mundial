@@ -851,8 +851,8 @@ function renderBets(){
   list.innerHTML=bets.map(function(b){
     return '<div class="bet-card"><div class="bet-card-main"><div class="bet-user"><div class="avatar" style="background:'+getColor(b.name)+'">'+getInitials(b.name)+'</div><div><div class="user-name">'+b.name+'</div><div class="user-meta">'+timeAgo(b.ts)+' · '+fmt(b.valor||VALOR_FIJO)+'</div></div></div><div class="bet-score" style="filter:blur(6px);user-select:none;letter-spacing:2px;color:var(--gris)">🔒 ?–?</div></div></div>';
   }).join('');
-  // Actualizar select de admin si está abierto
-  if($('adminContent') && $('adminContent').style.display==='block') populateDeleteSelect();
+  // Actualizar select de admin siempre
+  populateDeleteSelect();
 }
 
 // ════════════════════════════════════
@@ -1024,13 +1024,23 @@ function changePass(){
 function populateDeleteSelect(){
   var sel = $('deleteBetSelect');
   if(!sel) return;
+  var prev = sel.value; // guardar selección anterior
   sel.innerHTML = '<option value="">— Selecciona un participante —</option>';
+  if(!bets.length){
+    var opt=document.createElement('option');
+    opt.disabled=true;
+    opt.textContent='No hay participantes registrados';
+    sel.appendChild(opt);
+    return;
+  }
   bets.forEach(function(b, i){
     var opt = document.createElement('option');
     opt.value = i;
-    opt.textContent = b.name + ' · ' + fmt(b.valor||VALOR_FIJO);
+    opt.textContent = (i+1)+'. '+b.name+' · '+fmt(b.valor||VALOR_FIJO);
     sel.appendChild(opt);
   });
+  // Restaurar selección si sigue siendo válida
+  if(prev !== '' && bets[parseInt(prev)]) sel.value = prev;
 }
 
 async function deleteSingleBet(){
@@ -1041,13 +1051,24 @@ async function deleteSingleBet(){
   if(!bet) return;
   if(!confirm('¿Eliminar la apuesta de "' + bet.name + '"?')) return;
   bets.splice(parseInt(idx), 1);
-  await fsSet('bets', {list: bets, updatedAt: Date.now()});
-  populateDeleteSelect();
-  renderBets(); renderBote();
-  showToast('❌ Apuesta de ' + bet.name + ' eliminada');
-  var msg=$('adminMsg');
-  msg.style.display='block'; msg.style.color='#e74c3c';
-  msg.textContent='Eliminado: ' + bet.name;
+  var ok = await fsSet('bets', {list: bets, updatedAt: Date.now()});
+  if(ok){
+    populateDeleteSelect();
+    renderBets();
+    renderBote();
+    // Actualizar también el bote visible en la pantalla
+    var total = calcBote();
+    $('boteAmount').textContent = fmt(total);
+    $('boteSub').textContent = bets.length + ' participante' + (bets.length!==1?'s':'') + (adminBase>0?' · Base admin: '+fmt(adminBase):'');
+    showToast('❌ ' + bet.name + ' eliminado · Bote actualizado: ' + fmt(total));
+    var msg=$('adminMsg');
+    msg.style.display='block'; msg.style.color='#e74c3c';
+    msg.textContent='✅ Eliminado: ' + bet.name + ' · Nuevo bote: ' + fmt(total);
+  } else {
+    // Revertir si falló Firebase
+    bets.splice(parseInt(idx), 0, bet);
+    showToast('⚠️ Error al eliminar. Intenta de nuevo', true);
+  }
 }
 
 async function clearResult(){
