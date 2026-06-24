@@ -288,6 +288,18 @@ input[type="number"]:focus{border-color:var(--amarillo);box-shadow:0 0 0 3px rgb
           <button onclick="clearAllBets()" style="flex:1;background:rgba(231,76,60,.15);color:#e74c3c;border:1px solid rgba(231,76,60,.3);border-radius:10px;padding:12px;font-size:13px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">🗑️ Borrar apuestas</button>
           <button onclick="clearResult()" style="flex:1;background:rgba(231,76,60,.15);color:#e74c3c;border:1px solid rgba(231,76,60,.3);border-radius:10px;padding:12px;font-size:13px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">🗑️ Borrar resultado</button>
         </div>
+
+        <div style="margin-top:14px;border-top:1px solid rgba(255,255,255,.07);padding-top:14px">
+          <label style="font-size:12px;color:var(--gris);font-weight:600;display:block;margin-bottom:6px;letter-spacing:.5px;text-transform:uppercase">❌ Descalificar participante</label>
+          <p style="font-size:11px;color:var(--gris);margin-bottom:8px">Selecciona el participante a eliminar de la polla.</p>
+          <div style="display:flex;gap:8px">
+            <select id="deleteBetSelect" style="flex:1;background:rgba(13,27,42,.8);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:10px 14px;color:var(--blanco);font-size:13px;font-family:Inter,sans-serif;outline:none">
+              <option value="">— Selecciona un participante —</option>
+            </select>
+            <button onclick="deleteSingleBet()" style="background:rgba(231,76,60,.2);color:#e74c3c;border:1px solid rgba(231,76,60,.4);border-radius:9px;padding:10px 16px;font-size:13px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer;white-space:nowrap">❌ Eliminar</button>
+          </div>
+        </div>
+
         <div id="adminMsg" style="font-size:12px;margin-top:10px;display:none"></div>
       </div>
     </div>
@@ -839,6 +851,8 @@ function renderBets(){
   list.innerHTML=bets.map(function(b){
     return '<div class="bet-card"><div class="bet-card-main"><div class="bet-user"><div class="avatar" style="background:'+getColor(b.name)+'">'+getInitials(b.name)+'</div><div><div class="user-name">'+b.name+'</div><div class="user-meta">'+timeAgo(b.ts)+' · '+fmt(b.valor||VALOR_FIJO)+'</div></div></div><div class="bet-score" style="filter:blur(6px);user-select:none;letter-spacing:2px;color:var(--gris)">🔒 ?–?</div></div></div>';
   }).join('');
+  // Actualizar select de admin si está abierto
+  if($('adminContent') && $('adminContent').style.display==='block') populateDeleteSelect();
 }
 
 // ════════════════════════════════════
@@ -1007,6 +1021,35 @@ function changePass(){
   $('newPassInput').value='';
   showToast('✅ Contraseña actualizada');
 }
+function populateDeleteSelect(){
+  var sel = $('deleteBetSelect');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— Selecciona un participante —</option>';
+  bets.forEach(function(b, i){
+    var opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = b.name + ' · ' + fmt(b.valor||VALOR_FIJO);
+    sel.appendChild(opt);
+  });
+}
+
+async function deleteSingleBet(){
+  var sel = $('deleteBetSelect');
+  var idx = sel.value;
+  if(idx === ''){ showToast('⚠️ Selecciona un participante', true); return; }
+  var bet = bets[parseInt(idx)];
+  if(!bet) return;
+  if(!confirm('¿Eliminar la apuesta de "' + bet.name + '"?')) return;
+  bets.splice(parseInt(idx), 1);
+  await fsSet('bets', {list: bets, updatedAt: Date.now()});
+  populateDeleteSelect();
+  renderBets(); renderBote();
+  showToast('❌ Apuesta de ' + bet.name + ' eliminada');
+  var msg=$('adminMsg');
+  msg.style.display='block'; msg.style.color='#e74c3c';
+  msg.textContent='Eliminado: ' + bet.name;
+}
+
 async function clearResult(){
   if(!confirm('¿Borrar el resultado del partido?')) return;
   realResult = null;
