@@ -385,7 +385,7 @@ input[type="number"]:focus{border-color:var(--amarillo);box-shadow:0 0 0 3px rgb
   ══════════════════════════════ -->
   <section id="tab-resultados" class="hidden">
     <div class="section-title">Escalafón</div>
-    <p class="section-sub">El resultado se toma automáticamente de la API cuando el partido termina.</p>
+    <p class="section-sub">El resultado lo ingresa el admin. Si nadie acierta, el bote se acumula para la próxima.</p>
 
     <div class="result-section">
       <div class="result-title">⚽ Resultado del Partido</div>
@@ -944,6 +944,18 @@ function renderResults(){
 
   var nn=ranked.length;
   var podiumCount=Math.min(nn,3);
+  // ── Si nadie tiene puntos, nadie gana — el bote se acumula ──
+  if(ranked[0].result.pts === 0){
+    $('podium').innerHTML='<div style="grid-column:1/-1;text-align:center;padding:32px 20px"><div style="font-size:48px;margin-bottom:12px">😮</div><div style="font-family:Bebas Neue,sans-serif;font-size:28px;letter-spacing:2px;color:var(--amarillo);margin-bottom:8px">¡Nadie acertó!</div><div style="font-size:14px;color:var(--gris);line-height:1.7">Ningún participante acertó el resultado.<br>El bote de <strong style="color:var(--oro)">'+fmt(total)+'</strong> se acumula para la próxima polla.</div></div>';
+    $('rankingList').innerHTML=ranked.map(function(p,idx){
+      return '<div class="rank-card"><div class="rank-num">'+(idx+1)+'</div><div><div class="rank-name">'+p.name+'</div><div class="rank-sub">'+p.result.label+'</div></div><div class="rank-pred">🇨🇴 '+p.col+'–'+p.con+' 🇨🇩</div><div class="rank-pts pts-zero">0 pts</div></div>';
+    }).join('');
+    podiumSection.style.display='block'; noMsg.classList.add('hidden');
+    tieBanner.classList.add('hidden');
+    return;
+  }
+
+  // ── Si hay ganadores con puntos ──
   var top3=ranked.slice(0,podiumCount);
   var classes=['second','first','third'],medals=['🥈','🥇','🥉'],labelsP=['2° Lugar','1° Lugar','3° Lugar'];
   // Si hay 1: mostrar solo 1er lugar centrado. Si hay 2: mostrar 1° y 2°.
