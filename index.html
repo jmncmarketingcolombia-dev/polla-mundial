@@ -300,6 +300,27 @@ input[type="number"]:focus{border-color:var(--amarillo);box-shadow:0 0 0 3px rgb
           </div>
         </div>
 
+        <div style="margin-top:14px;border-top:1px solid rgba(255,255,255,.07);padding-top:14px">
+          <label style="font-size:12px;color:var(--amarillo);font-weight:700;display:block;margin-bottom:10px;letter-spacing:.5px;text-transform:uppercase">⚽ Registrar Resultado del Partido</label>
+          <div id="adminResultBanner" style="display:none;background:rgba(29,185,84,.1);border:1px solid rgba(29,185,84,.3);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--verde-claro);font-weight:600;margin-bottom:12px"></div>
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin-bottom:12px">
+            <div><span style="display:block;text-align:center;font-size:18px;margin-bottom:5px">🇨🇴</span><input type="number" id="adminRealCol" min="0" max="20" placeholder="0" style="width:100%;background:rgba(13,27,42,.8);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px;color:var(--amarillo);font-size:26px;font-family:'Bebas Neue',sans-serif;text-align:center;outline:none;-moz-appearance:textfield"></div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--amarillo);text-align:center">—</div>
+            <div><span style="display:block;text-align:center;font-size:18px;margin-bottom:5px">🇨🇩</span><input type="number" id="adminRealCon" min="0" max="20" placeholder="0" style="width:100%;background:rgba(13,27,42,.8);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px;color:var(--amarillo);font-size:26px;font-family:'Bebas Neue',sans-serif;text-align:center;outline:none;-moz-appearance:textfield"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+            <div>
+              <span style="font-size:11px;color:var(--gris);font-weight:600;display:block;margin-bottom:5px">🇨🇴 Goleadores Colombia</span>
+              <input type="text" id="adminRealScorerCol" placeholder="Ej: Daniel Muñoz, Luis Díaz" style="width:100%;background:rgba(13,27,42,.8);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:10px 12px;color:var(--blanco);font-size:13px;font-family:Inter,sans-serif;outline:none">
+            </div>
+            <div>
+              <span style="font-size:11px;color:var(--gris);font-weight:600;display:block;margin-bottom:5px">🇨🇩 Goleadores Congo</span>
+              <input type="text" id="adminRealScorerCon" placeholder="Ej: Silas" style="width:100%;background:rgba(13,27,42,.8);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:10px 12px;color:var(--blanco);font-size:13px;font-family:Inter,sans-serif;outline:none">
+            </div>
+          </div>
+          <button onclick="adminSaveResult()" style="width:100%;background:var(--verde);color:white;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">🏆 Guardar Resultado y Calcular Ganadores</button>
+        </div>
+
         <div id="adminMsg" style="font-size:12px;margin-top:10px;display:none"></div>
       </div>
     </div>
@@ -387,40 +408,13 @@ input[type="number"]:focus{border-color:var(--amarillo);box-shadow:0 0 0 3px rgb
     <div class="section-title">Escalafón</div>
     <p class="section-sub">El resultado lo ingresa el admin. Si nadie acierta, el bote se acumula para la próxima.</p>
 
-    <div class="result-section">
-      <div class="result-title">⚽ Resultado del Partido</div>
-      <div id="autoFilledBanner" class="auto-filled-banner hidden">🔌 Datos tomados automáticamente de la API FIFA en tiempo real</div>
-      <div id="resultActiveBanner" class="result-active-banner hidden">✅ Resultado: <strong id="resultDisplay"></strong></div>
-
-      <!-- ADMIN LOCK para resultado -->
-      <div id="resultLock" style="background:rgba(245,197,24,.07);border:1px solid rgba(245,197,24,.2);border-radius:12px;padding:16px;margin-bottom:12px">
-        <p style="font-size:12px;color:var(--gris);margin-bottom:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">🔒 Solo el administrador puede ingresar el resultado</p>
-        <div style="display:flex;gap:8px">
-          <input type="password" id="resultPassInput" placeholder="Contraseña admin" style="flex:1;background:rgba(13,27,42,.8);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:10px 14px;color:var(--blanco);font-size:14px;font-family:Inter,sans-serif;outline:none">
-          <button onclick="unlockResult()" style="background:var(--amarillo);color:var(--azul-noche);border:none;border-radius:9px;padding:10px 18px;font-size:13px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer">Entrar</button>
-        </div>
-      </div>
-
-      <!-- FORMULARIO resultado — oculto hasta autenticar -->
-      <div id="resultForm" style="display:none">
-        <div class="result-inputs">
-          <div><span style="display:block;text-align:center;font-size:18px;margin-bottom:5px">🇨🇴</span><input type="number" id="realCol" min="0" max="20" placeholder="0"></div>
-          <div class="score-sep" style="padding-bottom:0">—</div>
-          <div><span style="display:block;text-align:center;font-size:18px;margin-bottom:5px">🇨🇩</span><input type="number" id="realCon" min="0" max="20" placeholder="0"></div>
-        </div>
-        <div class="result-scorers-row">
-          <div class="scorer-field">
-            <span class="scorer-label">🇨🇴 Goleador real Colombia</span>
-            <input type="text" class="scorer-input" id="realScorerCol" placeholder="Nombre del goleador">
-          </div>
-          <div class="scorer-field">
-            <span class="scorer-label">🇨🇩 Goleador real Congo</span>
-            <input type="text" class="scorer-input" id="realScorerCon" placeholder="Nombre del goleador">
-          </div>
-        </div>
-        <button class="btn-result" onclick="calculateResults()">🏆 Calcular Ganadores</button>
-      </div>
-    </div>
+    <div id="resultActiveBanner" class="result-active-banner hidden" style="margin-bottom:16px">✅ Resultado: <strong id="resultDisplay"></strong></div>
+    <div id="autoFilledBanner" class="auto-filled-banner hidden" style="margin-bottom:16px">🔌 Datos tomados automáticamente</div>
+    <!-- Campos ocultos para que renderResults pueda leer/escribir -->
+    <input type="hidden" id="realCol">
+    <input type="hidden" id="realCon">
+    <input type="hidden" id="realScorerCol">
+    <input type="hidden" id="realScorerCon">
 
     <div id="podiumSection" style="display:none">
       <div id="tieBanner" class="tie-banner hidden"></div>
@@ -748,15 +742,7 @@ var TABS=['apostar','resultados','reglas','qr'];
 function showTab(tab){
   TABS.forEach(function(t){ $('tab-'+t).classList.toggle('hidden',t!==tab); });
   document.querySelectorAll('.tab-btn').forEach(function(b,i){ b.classList.toggle('active',TABS[i]===tab); });
-  if(tab==='resultados'){
-    // Siempre mostrar el candado primero al abrir la tab
-    if($('resultLock')){
-      $('resultLock').style.display='block';
-      $('resultForm').style.display='none';
-      if($('resultPassInput')) $('resultPassInput').value='';
-    }
-    renderResults();
-  }
+  if(tab==='resultados'){ renderResults(); }
   if(tab==='qr') initQR();
 }
 
@@ -899,15 +885,20 @@ async function calculateResults(){
 function renderResults(){
   var podiumSection=$('podiumSection'),noMsg=$('noResultMsg');
   var banner=$('resultActiveBanner'),autoB=$('autoFilledBanner'),tieBanner=$('tieBanner');
-  if(realResult){
-    // Solo mostrar el banner informativo, NO llenar los campos (están bloqueados)
+  if(realResult && realResult.col !== undefined){
     banner.classList.remove('hidden');
     var txt='Colombia '+realResult.col+' – '+realResult.con+' Congo';
     if(realResult.scorerCol) txt+=' · 🇨🇴 '+realResult.scorerCol;
     if(realResult.scorerCon) txt+=' · 🇨🇩 '+realResult.scorerCon;
     $('resultDisplay').textContent=txt;
     $('heroScore').textContent=realResult.col+' — '+realResult.con;
-    if(realResult.fromAPI) autoB.classList.remove('hidden');
+    // Pre-fill admin form if open
+    if($('adminRealCol') && $('adminContent') && $('adminContent').style.display==='block'){
+      $('adminRealCol').value=realResult.col;
+      $('adminRealCon').value=realResult.con;
+      $('adminRealScorerCol').value=realResult.scorerCol||'';
+      $('adminRealScorerCon').value=realResult.scorerCon||'';
+    }
   }
   if(!realResult||!bets.length){podiumSection.style.display='none';noMsg.classList.remove('hidden');return;}
 
@@ -993,26 +984,7 @@ function unlockAdmin(){
     showToast('⚠️ Contraseña incorrecta',true);
   }
 }
-function unlockResult(){
-  var entered = $('resultPassInput').value;
-  var correct = localStorage.getItem('pollaWC26_adminPass') || 'colombia2026';
-  if(entered === correct){
-    $('resultLock').style.display = 'none';
-    $('resultForm').style.display = 'block';
-    // Llenar campos solo después de autenticar
-    if(realResult){
-      $('realCol').value = realResult.col;
-      $('realCon').value = realResult.con;
-      $('realScorerCol').value = realResult.scorerCol || '';
-      $('realScorerCon').value = realResult.scorerCon || '';
-    }
-    showToast('✅ Acceso admin concedido');
-  } else {
-    $('resultPassInput').style.borderColor = '#e74c3c';
-    setTimeout(function(){ $('resultPassInput').style.borderColor = ''; }, 1500);
-    showToast('⚠️ Contraseña incorrecta', true);
-  }
-}
+// unlockResult removed — result form moved to admin panel
 
 async function saveAdmin(){
   var val=parseInt($('baseInput').value)||0;
@@ -1065,6 +1037,18 @@ async function deleteSingleBet(){
   var ok = await fsSet('bets', {list: bets, updatedAt: Date.now()});
   if(ok){
     populateDeleteSelect();
+    // Pre-fill result form if result already exists
+    if(realResult && $('adminRealCol')){
+      $('adminRealCol').value = realResult.col || '';
+      $('adminRealCon').value = realResult.con || '';
+      $('adminRealScorerCol').value = realResult.scorerCol || '';
+      $('adminRealScorerCon').value = realResult.scorerCon || '';
+      var b=$('adminResultBanner');
+      if(b && realResult.col !== undefined){
+        b.style.display='block';
+        b.textContent='✅ Resultado actual: Colombia '+realResult.col+'–'+realResult.con+' Congo';
+      }
+    }
     renderBets();
     renderBote();
     // Actualizar también el bote visible en la pantalla
@@ -1080,6 +1064,39 @@ async function deleteSingleBet(){
     bets.splice(parseInt(idx), 0, bet);
     showToast('⚠️ Error al eliminar. Intenta de nuevo', true);
   }
+}
+
+async function adminSaveResult(){
+  var col = $('adminRealCol').value;
+  var con = $('adminRealCon').value;
+  if(col===''||con===''){ showToast('⚠️ Ingresa el marcador', true); return; }
+  var gc=parseInt(col), gcon=parseInt(con);
+  if(isNaN(gc)||isNaN(gcon)||gc<0||gcon<0){ showToast('⚠️ Marcador inválido', true); return; }
+
+  realResult = {
+    col: gc, con: gcon,
+    scorerCol: $('adminRealScorerCol').value.trim(),
+    scorerCon: $('adminRealScorerCon').value.trim()
+  };
+
+  var ok = await fsSet('result', realResult);
+  if(!ok){ showToast('⚠️ Error guardando resultado', true); return; }
+
+  // Actualizar hero score
+  $('heroScore').textContent = gc + ' — ' + gcon;
+  var dot = $('liveStatusDot');
+  dot.className = 'live-dot ft-dot';
+  dot.textContent = '✅ PARTIDO FINALIZADO';
+
+  // Mostrar banner en admin
+  var b = $('adminResultBanner');
+  b.style.display = 'block';
+  b.textContent = '✅ Resultado guardado: Colombia ' + gc + '–' + gcon + ' Congo';
+
+  // Calcular y renderizar escalafón para todos
+  fetchMatchData();
+  renderResults();
+  showToast('🏆 Resultado guardado · Escalafón actualizado para todos');
 }
 
 async function clearResult(){
