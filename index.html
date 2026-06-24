@@ -336,6 +336,15 @@ input[type="number"]:focus{border-color:var(--amarillo);box-shadow:0 0 0 3px rgb
       </div>
     </div>
 
+    <!-- Banner partido terminado -->
+    <div id="matchEndedBanner" style="display:none;background:linear-gradient(135deg,rgba(231,76,60,.25),rgba(231,76,60,.1));border:2px solid rgba(231,76,60,.5);border-radius:16px;padding:20px 24px;margin-bottom:20px;align-items:center;gap:14px;flex-wrap:wrap">
+      <span style="font-size:36px">⛔</span>
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:#e74c3c;margin-bottom:4px">¡El Partido Ya Terminó!</div>
+        <div style="font-size:13px;color:#b0c4d8">No se aceptan más apuestas. Ve al Escalafón para ver los resultados.</div>
+      </div>
+    </div>
+
     <div class="section-title">Tu Predicción</div>
     <p class="section-sub">Ingresa tu apuesta antes del partido.</p>
 
@@ -607,6 +616,37 @@ async function fsSet(doc, obj){
 // ════════════════════════════════════
 //  CARGA INICIAL DESDE FIREBASE
 // ════════════════════════════════════
+function blockBetForm(){
+  // Mostrar banner permanente
+  var el = $('matchEndedBanner');
+  if(el) el.style.display = 'flex';
+  // Deshabilitar todos los inputs del formulario
+  var btn = $('betBtn');
+  if(btn){
+    btn.disabled = true;
+    btn.textContent = '⛔ El partido ya terminó';
+    btn.style.background = 'rgba(231,76,60,.3)';
+    btn.style.color = '#e74c3c';
+    btn.style.cursor = 'not-allowed';
+  }
+  var ids=['inputName','scoreCol','scoreCon','scorerCol','scorerCon','inputValor'];
+  ids.forEach(function(id){
+    var el=$( id);
+    if(el){ el.disabled=true; el.style.opacity='.4'; }
+  });
+  var toggle=$('toggleScorers');
+  if(toggle){ toggle.disabled=true; toggle.style.opacity='.4'; }
+}
+
+function showMatchEndedBanner(){
+  var el = $('matchEndedBanner');
+  if(el){
+    el.style.display = 'flex';
+    setTimeout(function(){ el.style.display='none'; }, 4000);
+  }
+  showToast('⛔ ¡El partido ya terminó! No se aceptan más apuestas.', true);
+}
+
 async function loadAll(){
   showSyncStatus('⏳ Conectando…', 'loading');
 
@@ -645,7 +685,10 @@ async function loadAll(){
   renderBets();
   renderBote();
   fetchMatchData();
-  if(realResult) $('heroScore').textContent = realResult.col + ' — ' + realResult.con;
+  if(realResult && realResult.col !== undefined){
+    $('heroScore').textContent = realResult.col + ' — ' + realResult.con;
+    blockBetForm();
+  }
 
   showSyncStatus('✅ En línea · Actualización automática', 'ok');
   startPolling();
@@ -676,6 +719,8 @@ function startPolling(){
       $('heroScore').textContent = realResult.col + ' — ' + realResult.con;
       fetchMatchData();
       renderResults();
+      blockBetForm();
+      showToast('⛔ El partido terminó · ' + realResult.col + '–' + realResult.con + ' · ¡Ya no se aceptan apuestas!', true);
     }
   }, 8000);
 }
@@ -784,6 +829,12 @@ function renderBote(){
 //  APOSTAR
 // ════════════════════════════════════
 async function placeBet(){
+  // Bloquear apuestas si el partido ya terminó
+  if(realResult && realResult.col !== undefined){
+    showMatchEndedBanner();
+    return;
+  }
+
   var name=$('inputName').value.trim();
   var col=$('scoreCol').value;
   var con=$('scoreCon').value;
