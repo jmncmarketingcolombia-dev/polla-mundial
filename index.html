@@ -449,20 +449,16 @@ input[type="number"]:focus{border-color:var(--amarillo);box-shadow:0 0 0 3px rgb
           <div class="rule-text"><span class="rule-pts">10 pts — Marcador exacto</span>Acertaste el resultado final con los goles exactos de ambos equipos.</div>
         </li>
         <li class="rule-item">
-          <div class="rule-icon" style="background:rgba(29,185,84,.15)">✅</div>
-          <div class="rule-text"><span class="rule-pts" style="color:var(--verde-claro)">5 pts — Resultado correcto</span>Predijiste el ganador o el empate, aunque no el marcador exacto.</div>
-        </li>
-        <li class="rule-item">
-          <div class="rule-icon" style="background:rgba(96,165,250,.15)">📊</div>
-          <div class="rule-text"><span class="rule-pts" style="color:#60a5fa">2 pts — Diferencia de goles</span>Acertaste la diferencia de goles entre los equipos.</div>
-        </li>
-        <li class="rule-item">
           <div class="rule-icon" style="background:rgba(249,115,22,.15)">⚽</div>
-          <div class="rule-text"><span class="rule-pts" style="color:var(--naranja)">+3 pts — Goleador acertado</span>Por cada goleador correcto (Colombia y/o Congo). Tomados en tiempo real desde la API. Ignora tildes y mayúsculas.</div>
+          <div class="rule-text"><span class="rule-pts" style="color:var(--naranja)">+3 pts — Goleador acertado</span>Solo aplica si acertaste el marcador exacto. Por cada goleador correcto sumas 3 pts adicionales. Separa varios con coma. Ignora tildes y mayúsculas.</div>
         </li>
         <li class="rule-item">
           <div class="rule-icon" style="background:rgba(138,155,176,.15)">❌</div>
-          <div class="rule-text"><span class="rule-pts" style="color:var(--gris)">0 pts — Sin puntos</span>El resultado no coincide con ninguna categoría.</div>
+          <div class="rule-text"><span class="rule-pts" style="color:var(--gris)">0 pts — No acertó</span>Si no acertaste el marcador exacto, no obtienes puntos sin importar nada más.</div>
+        </li>
+        <li class="rule-item">
+          <div class="rule-icon" style="background:rgba(245,197,24,.15)">💰</div>
+          <div class="rule-text"><span class="rule-pts" style="color:var(--amarillo)">Bote acumulado</span>Si nadie acierta el marcador exacto, el bote completo se acumula y se suma a la siguiente polla.</div>
         </li>
       </ul>
     </div>
@@ -861,23 +857,26 @@ function renderBets(){
 function calcPoints(bet, real){
   var bc=bet.col,bcon=bet.con,rc=real.col,rcon=real.con;
   var pts=0,labels=[];
-  if(bc===rc&&bcon===rcon){pts+=10;labels.push('🎯 Exacto');}
-  else{
-    if(Math.sign(bc-bcon)===Math.sign(rc-rcon)){pts+=5;labels.push('✅ Resultado');}
-    if((bc-bcon)===(rc-rcon)){pts+=2;labels.push('📊 Diferencia');}
+
+  // SOLO marcador exacto da puntos para ganar el bote
+  if(bc===rc && bcon===rcon){
+    pts+=10; labels.push('🎯 Marcador exacto');
+
+    // Goleadores: solo suman si además acertó el marcador exacto
+    if(bet.scorerCol&&real.scorerCol){
+      var predCol=bet.scorerCol.split(','),realColList=real.scorerCol.split(','),hitCol=0;
+      predCol.forEach(function(p){realColList.forEach(function(r){if(matchesScorer(p.trim(),r.trim()))hitCol++;});});
+      if(hitCol>0){pts+=hitCol*3;labels.push('⚽🇨🇴 x'+hitCol+' goleador'+(hitCol>1?'es':'')+' (+'+hitCol*3+'pts)');}
+    }
+    if(bet.scorerCon&&real.scorerCon){
+      var predCon=bet.scorerCon.split(','),realConList=real.scorerCon.split(','),hitCon=0;
+      predCon.forEach(function(p){realConList.forEach(function(r){if(matchesScorer(p.trim(),r.trim()))hitCon++;});});
+      if(hitCon>0){pts+=hitCon*3;labels.push('⚽🇨🇩 x'+hitCon+' goleador'+(hitCon>1?'es':'')+' (+'+hitCon*3+'pts)');}
+    }
   }
-  if(bet.scorerCol&&real.scorerCol){
-    var predCol=bet.scorerCol.split(','),realColList=real.scorerCol.split(','),hitCol=0;
-    predCol.forEach(function(p){realColList.forEach(function(r){if(matchesScorer(p.trim(),r.trim()))hitCol++;});});
-    if(hitCol>0){pts+=hitCol*3;labels.push('⚽🇨🇴 x'+hitCol+' goleador'+(hitCol>1?'es':'')+' (+'+hitCol*3+'pts)');}
-  }
-  if(bet.scorerCon&&real.scorerCon){
-    var predCon=bet.scorerCon.split(','),realConList=real.scorerCon.split(','),hitCon=0;
-    predCon.forEach(function(p){realConList.forEach(function(r){if(matchesScorer(p.trim(),r.trim()))hitCon++;});});
-    if(hitCon>0){pts+=hitCon*3;labels.push('⚽🇨🇩 x'+hitCon+' goleador'+(hitCon>1?'es':'')+' (+'+hitCon*3+'pts)');}
-  }
-  var cls=pts>=10?'pts-exact':pts>=5?'pts-result':pts>=3?'pts-scorer':pts>=2?'pts-diff':'pts-zero';
-  return{pts:pts,label:labels.length?labels.join(' + '):'❌ Sin puntos',cls:cls};
+
+  var cls = pts>0 ? 'pts-exact' : 'pts-zero';
+  return{pts:pts, label:labels.length?labels.join(' + '):'❌ No acertó', cls:cls};
 }
 
 // ════════════════════════════════════
