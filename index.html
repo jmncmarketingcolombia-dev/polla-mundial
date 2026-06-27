@@ -905,28 +905,28 @@ function renderBets(){
 //  SISTEMA DE PUNTOS
 // ════════════════════════════════════
 function calcPoints(bet, real){
-  var bc=bet.col,bcon=bet.con,rc=real.col,rcon=real.con;
-  var pts=0,labels=[];
+  var bc=bet.col, bcon=bet.con, rc=real.col, rcon=real.con;
+  var pts=0, labels=[];
 
-  // SOLO marcador exacto da puntos para ganar el bote
+  // Solo marcador exacto da puntos
   if(bc===rc && bcon===rcon){
     pts+=10; labels.push('🎯 Marcador exacto');
 
-    // Goleadores: solo suman si además acertó el marcador exacto
-    if(bet.scorerCol&&real.scorerCol){
-      var predCol=bet.scorerCol.split(','),realColList=real.scorerCol.split(','),hitCol=0;
-      predCol.forEach(function(p){realColList.forEach(function(r){if(matchesScorer(p.trim(),r.trim()))hitCol++;});});
-      if(hitCol>0){pts+=hitCol*3;labels.push('⚽🇨🇴 x'+hitCol+' goleador'+(hitCol>1?'es':'')+' (+'+hitCol*3+'pts)');}
+    // Goleadores — solo si acertó el marcador
+    if(bet.scorerCol && real.scorerCol){
+      var predCol=bet.scorerCol.split(','), realColList=real.scorerCol.split(','), hitCol=0;
+      predCol.forEach(function(p){ realColList.forEach(function(r){ if(matchesScorer(p.trim(),r.trim())) hitCol++; }); });
+      if(hitCol>0){ pts+=hitCol*3; labels.push('⚽🇨🇴 x'+hitCol+' goleador'+(hitCol>1?'es':'')+' (+'+hitCol*3+'pts)'); }
     }
-    if(bet.scorerCon&&real.scorerCon){
-      var predCon=bet.scorerCon.split(','),realConList=real.scorerCon.split(','),hitCon=0;
-      predCon.forEach(function(p){realConList.forEach(function(r){if(matchesScorer(p.trim(),r.trim()))hitCon++;});});
-      if(hitCon>0){pts+=hitCon*3;labels.push('⚽🇵🇹 x'+hitCon+' goleador'+(hitCon>1?'es':'')+' (+'+hitCon*3+'pts)');}
+    if(bet.scorerCon && real.scorerCon){
+      var predCon=bet.scorerCon.split(','), realConList=real.scorerCon.split(','), hitCon=0;
+      predCon.forEach(function(p){ realConList.forEach(function(r){ if(matchesScorer(p.trim(),r.trim())) hitCon++; }); });
+      if(hitCon>0){ pts+=hitCon*3; labels.push('⚽🇵🇹 x'+hitCon+' goleador'+(hitCon>1?'es':'')+' (+'+hitCon*3+'pts)'); }
     }
   }
 
-  var cls = pts>0 ? 'pts-exact' : 'pts-zero';
-  return{pts:pts, label:labels.length?labels.join(' + '):'❌ No acertó', cls:cls};
+  var cls = pts>=10 ? 'pts-exact' : 'pts-zero';
+  return {pts:pts, label:labels.length?labels.join(' + '):'❌ No acertó el marcador', cls:cls};
 }
 
 // ════════════════════════════════════
@@ -947,16 +947,16 @@ async function calculateResults(){
 }
 
 function renderResults(){
-  var podiumSection=$('podiumSection'),noMsg=$('noResultMsg');
-  var banner=$('resultActiveBanner'),autoB=$('autoFilledBanner'),tieBanner=$('tieBanner');
-  if(realResult && realResult.col !== undefined){
+  var podiumSection=$('podiumSection'), noMsg=$('noResultMsg');
+  var banner=$('resultActiveBanner'), autoB=$('autoFilledBanner'), tieBanner=$('tieBanner');
+
+  if(realResult && realResult.col !== undefined && realResult.match==='COL-POR'){
     banner.classList.remove('hidden');
-    var txt='Colombia '+realResult.col+' – '+realResult.con+' Congo';
+    var txt='Colombia '+realResult.col+' – '+realResult.con+' Portugal';
     if(realResult.scorerCol) txt+=' · 🇨🇴 '+realResult.scorerCol;
     if(realResult.scorerCon) txt+=' · 🇵🇹 '+realResult.scorerCon;
     $('resultDisplay').textContent=txt;
     $('heroScore').textContent=realResult.col+' — '+realResult.con;
-    // Pre-fill admin form if open
     if($('adminRealCol') && $('adminContent') && $('adminContent').style.display==='block'){
       $('adminRealCol').value=realResult.col;
       $('adminRealCon').value=realResult.con;
@@ -964,66 +964,130 @@ function renderResults(){
       $('adminRealScorerCon').value=realResult.scorerCon||'';
     }
   }
-  if(!realResult||!bets.length){podiumSection.style.display='none';noMsg.classList.remove('hidden');return;}
+
+  if(!realResult || realResult.col===undefined || !bets.length){
+    podiumSection.style.display='none'; noMsg.classList.remove('hidden'); return;
+  }
 
   var total=calcBote();
-  var ranked=bets.map(function(b){return Object.assign({},b,{result:calcPoints(b,realResult)});})
-    .sort(function(a,b){return b.result.pts-a.result.pts||a.ts-b.ts;});
 
-  // Distribución dinámica según número de participantes
-  var n = ranked.length;
-  var dynDist;
-  if(n === 1)      dynDist = [1.0];               // 1 solo → 100%
-  else if(n === 2) dynDist = [0.7, 0.3];           // 2 → 70/30
-  else             dynDist = [0.6, 0.3, 0.1];      // 3+ → 60/30/10
+  // Calcular puntos de todos
+  var ranked=bets.map(function(b){ return Object.assign({},b,{result:calcPoints(b,realResult)}); })
+    .sort(function(a,b){ return b.result.pts-a.result.pts || a.ts-b.ts; });
 
-  var groups=[],i=0;
-  while(i<ranked.length){
-    var j=i;
-    while(j<ranked.length&&ranked[j].result.pts===ranked[i].result.pts) j++;
-    groups.push(ranked.slice(i,j)); i=j;
-  }
-  var tieMessages=[],posAccum=0;
-  groups.forEach(function(grp){
-    var startPos=posAccum,prizeTotal=0;
-    for(var k=startPos;k<=Math.min(startPos+grp.length-1,dynDist.length-1);k++) prizeTotal+=Math.floor(total*dynDist[k]);
-    var prizeEach=grp.length>1&&prizeTotal>0?Math.floor(prizeTotal/grp.length):prizeTotal;
-    grp.forEach(function(p){p._prizeEach=prizeEach;p._tieCount=grp.length;p._posStart=startPos;});
-    if(grp.length>1&&startPos<dynDist.length&&prizeTotal>0)
-      tieMessages.push('<strong style="color:var(--amarillo)">'+grp.length+' personas</strong> con '+grp[0].result.pts+' pts comparten el '+['1°','2°','3°'][startPos]+' lugar → cada una recibe <strong style="color:var(--verde-claro)">'+fmt(prizeEach)+'</strong>');
-    posAccum+=grp.length;
-  });
-  tieBanner.classList.toggle('hidden',!tieMessages.length);
-  if(tieMessages.length) tieBanner.innerHTML='<div class="tie-title">🤝 Empate</div><div class="tie-names">'+tieMessages.join('<br>')+'</div>';
+  // Separar quienes acertaron (pts>=10) y quienes no
+  var winners = ranked.filter(function(p){ return p.result.pts >= 10; });
+  var losers  = ranked.filter(function(p){ return p.result.pts < 10; });
 
-  var nn=ranked.length;
-  var podiumCount=Math.min(nn,3);
-  // ── Si nadie tiene puntos, nadie gana — el bote se acumula ──
-  if(ranked[0].result.pts === 0){
-    $('podium').innerHTML='<div style="grid-column:1/-1;text-align:center;padding:32px 20px"><div style="font-size:48px;margin-bottom:12px">😮</div><div style="font-family:Bebas Neue,sans-serif;font-size:28px;letter-spacing:2px;color:var(--amarillo);margin-bottom:8px">¡Nadie acertó!</div><div style="font-size:14px;color:var(--gris);line-height:1.7">Ningún participante acertó el resultado.<br>El bote de <strong style="color:var(--oro)">'+fmt(total)+'</strong> se acumula para la próxima polla.</div></div>';
-    $('rankingList').innerHTML=ranked.map(function(p,idx){
-      return '<div class="rank-card"><div class="rank-num">'+(idx+1)+'</div><div><div class="rank-name">'+p.name+'</div><div class="rank-sub">'+p.result.label+'</div></div><div class="rank-pred">🇨🇴 '+p.col+'–'+p.con+' 🇵🇹</div><div class="rank-pts pts-zero">0 pts</div></div>';
+  // ── NADIE ACERTÓ ──
+  if(winners.length === 0){
+    $('podium').innerHTML='<div style="grid-column:1/-1;text-align:center;padding:32px 20px">' +
+      '<div style="font-size:48px;margin-bottom:12px">😮</div>' +
+      '<div style="font-family:Bebas Neue,sans-serif;font-size:28px;letter-spacing:2px;color:var(--amarillo);margin-bottom:8px">¡Nadie acertó el marcador!</div>' +
+      '<div style="font-size:14px;color:var(--gris);line-height:1.8">Ningún participante predijo el resultado exacto.<br>' +
+      'El bote de <strong style="color:var(--oro)">'+fmt(total)+'</strong> se acumula para la próxima polla.</div></div>';
+    $('rankingList').innerHTML=ranked.map(function(p,i){
+      return '<div class="rank-card"><div class="rank-num">'+(i+1)+'</div><div><div class="rank-name">'+p.name+'</div><div class="rank-sub">'+p.result.label+'</div></div><div class="rank-pred">🇨🇴 '+p.col+'–'+p.con+' 🇵🇹</div><div class="rank-pts pts-zero">0 pts</div></div>';
     }).join('');
-    podiumSection.style.display='block'; noMsg.classList.add('hidden');
     tieBanner.classList.add('hidden');
+    podiumSection.style.display='block'; noMsg.classList.add('hidden');
     return;
   }
 
-  // ── Si hay ganadores con puntos ──
-  var top3=ranked.slice(0,podiumCount);
-  var classes=['second','first','third'],medals=['🥈','🥇','🥉'],labelsP=['2° Lugar','1° Lugar','3° Lugar'];
-  // Si hay 1: mostrar solo 1er lugar centrado. Si hay 2: mostrar 1° y 2°.
+  // ── HAY GANADORES — Opción 4 ──
+  // Paso 1: agrupar ganadores por puntos (marcador + goleadores)
+  // Paso 2: si hay empate en pts → dividir premio entre empatados
+  // Paso 3: quienes no acertaron → 0 prize
+
+  // Distribución dinámica según cuántos ganadores hay
+  var nW = winners.length;
+  var dynDist;
+  if(nW===1)      dynDist=[1.0];
+  else if(nW===2) dynDist=[0.7,0.3];
+  else            dynDist=[0.6,0.3,0.1];
+
+  // Ordenar ganadores por pts desc, ts asc
+  winners.sort(function(a,b){ return b.result.pts-a.result.pts || a.ts-b.ts; });
+
+  // Agrupar empates entre ganadores
+  var wGroups=[], wi=0;
+  while(wi<winners.length){
+    var wj=wi;
+    while(wj<winners.length && winners[wj].result.pts===winners[wi].result.pts) wj++;
+    wGroups.push(winners.slice(wi,wj)); wi=wj;
+  }
+
+  // Asignar premios
+  var explanations=[];
+  var posAccum=0;
+  wGroups.forEach(function(grp){
+    var startPos=posAccum;
+    var prizeTotal=0;
+    for(var k=startPos;k<=Math.min(startPos+grp.length-1, dynDist.length-1);k++) prizeTotal+=Math.floor(total*dynDist[k]);
+    var prizeEach=grp.length>1&&prizeTotal>0?Math.floor(prizeTotal/grp.length):prizeTotal;
+    grp.forEach(function(p){ p._prizeEach=prizeEach; p._tieCount=grp.length; p._posStart=startPos; });
+
+    var posLabel=['1°','2°','3°'][startPos]||''+(startPos+1)+'°';
+    if(grp.length>1){
+      explanations.push(
+        '<strong style="color:var(--amarillo)">'+grp.length+' personas</strong> empatadas en el '+posLabel+' lugar con '+grp[0].result.pts+' pts '+
+        '→ se dividen <strong style="color:var(--oro)">'+fmt(prizeTotal)+'</strong> en partes iguales → cada una recibe <strong style="color:var(--verde-claro)">'+fmt(prizeEach)+'</strong>'
+      );
+    }
+    posAccum+=grp.length;
+  });
+  // Losers get 0
+  losers.forEach(function(p){ p._prizeEach=0; p._tieCount=1; p._posStart=99; });
+
+  // Construir explicación del desempate
+  var explHtml='';
+  if(winners.length>1){
+    explHtml='<div class="tie-title">📋 Cómo se calculó el resultado</div>';
+    explHtml+='<div style="font-size:13px;color:#b0c4d8;line-height:1.9;margin-bottom:8px">';
+    explHtml+='<strong style="color:var(--blanco)">Paso 1:</strong> Solo participan quienes acertaron el marcador exacto ';
+    explHtml+='<strong style="color:var(--amarillo)">('+winners.length+' persona'+(winners.length>1?'s':'')+')</strong>.<br>';
+    explHtml+='<strong style="color:var(--blanco)">Paso 2:</strong> Entre ellos se desempata por goleadores acertados (+3 pts c/u).<br>';
+    if(explanations.length){
+      explHtml+='<strong style="color:var(--blanco)">Paso 3:</strong> Empate en puntos → bote se divide en partes iguales:<br>';
+      explanations.forEach(function(e){ explHtml+='&nbsp;&nbsp;• '+e+'<br>'; });
+    }
+    explHtml+='</div>';
+  } else {
+    explHtml='<div class="tie-title">🏆 Solo 1 persona acertó el marcador exacto</div>';
+    explHtml+='<div style="font-size:13px;color:#b0c4d8">Se lleva el bote completo de <strong style="color:var(--oro)">'+fmt(total)+'</strong>.</div>';
+  }
+  tieBanner.innerHTML=explHtml;
+  tieBanner.classList.remove('hidden');
+
+  // PODIO — solo con ganadores (máx 3)
+  var top3=winners.slice(0,3);
+  var classes=['second','first','third'], medals=['🥈','🥇','🥉'], labelsP=['2° Lugar','1° Lugar','3° Lugar'];
   var order=top3.length===1?[0]:top3.length===2?[1,0]:[1,0,2];
   $('podium').innerHTML=order.map(function(i){
     if(!top3[i]) return '';
     var p=top3[i];
-    var prizeStr=total>0?'<div class="podium-prize">'+fmt(p._prizeEach)+(p._tieCount>1?' ÷ '+p._tieCount:'')+'</div>':'';
-    return '<div class="podium-place '+classes[i]+'"><span class="medal">'+medals[i]+'</span><div class="place-num">'+labelsP[i]+'</div><div class="podium-avatar" style="background:'+getColor(p.name)+'">'+getInitials(p.name)+'</div><div class="podium-name">'+p.name+'</div><div class="podium-pred">🇨🇴 '+p.col+' – '+p.con+' 🇵🇹</div><span class="points-badge">'+p.result.pts+' pts</span>'+prizeStr+'</div>';
+    var prizeStr=p._prizeEach>0?'<div class="podium-prize">'+fmt(p._prizeEach)+(p._tieCount>1?' ÷ '+p._tieCount:'')+'</div>':'';
+    return '<div class="podium-place '+classes[i]+'"><span class="medal">'+medals[i]+'</span>'+
+      '<div class="place-num">'+labelsP[i]+'</div>'+
+      '<div class="podium-avatar" style="background:'+getColor(p.name)+'">'+getInitials(p.name)+'</div>'+
+      '<div class="podium-name">'+p.name+'</div>'+
+      '<div class="podium-pred">🇨🇴 '+p.col+' – '+p.con+' 🇵🇹</div>'+
+      '<span class="points-badge">'+p.result.pts+' pts</span>'+prizeStr+'</div>';
   }).join('');
-  $('rankingList').innerHTML=ranked.map(function(p,idx){
-    var prizeInfo=idx<3&&total>0?'<br><span style="font-size:10px;color:var(--gris)">'+fmt(p._prizeEach)+'</span>':'';
-    return '<div class="rank-card"><div class="rank-num">'+(idx+1)+'</div><div><div class="rank-name">'+p.name+'</div><div class="rank-sub">'+p.result.label+'</div></div><div class="rank-pred">🇨🇴 '+p.col+'–'+p.con+' 🇵🇹</div><div class="rank-pts '+p.result.cls+'">'+p.result.pts+' pts'+prizeInfo+'</div></div>';
+
+  // RANKING COMPLETO — ganadores primero, luego el resto
+  var allRanked = winners.concat(losers);
+  $('rankingList').innerHTML=allRanked.map(function(p,idx){
+    var prizeInfo=p._prizeEach>0?'<br><span style="font-size:10px;color:var(--gris)">'+fmt(p._prizeEach)+'</span>':'';
+    var pts=p.result.pts>0?p.result.pts+' pts':'0 pts';
+    var cls=p.result.pts>0?'pts-exact':'pts-zero';
+    return '<div class="rank-card">'+
+      '<div class="rank-num">'+(idx+1)+'</div>'+
+      '<div><div class="rank-name">'+p.name+'</div><div class="rank-sub">'+p.result.label+'</div></div>'+
+      '<div class="rank-pred">🇨🇴 '+p.col+'–'+p.con+' 🇵🇹</div>'+
+      '<div class="rank-pts '+cls+'">'+pts+prizeInfo+'</div></div>';
   }).join('');
+
   podiumSection.style.display='block'; noMsg.classList.add('hidden');
 }
 
