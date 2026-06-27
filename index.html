@@ -604,14 +604,19 @@ function fromFS(doc){
   var obj = {};
   Object.keys(doc.fields).forEach(function(k){
     var f = doc.fields[k];
-    if(f.stringValue !== undefined){
-      try { obj[k] = JSON.parse(f.stringValue); }
-      catch(e){ obj[k] = f.stringValue; }
+    if(f.integerValue  !== undefined) obj[k] = parseInt(f.integerValue);
+    else if(f.doubleValue !== undefined) obj[k] = parseFloat(f.doubleValue);
+    else if(f.booleanValue !== undefined) obj[k] = f.booleanValue;
+    else if(f.nullValue !== undefined) obj[k] = null;
+    else if(f.stringValue !== undefined){
+      // Try to parse JSON for arrays/objects, else keep as string
+      if(f.stringValue === 'true') obj[k] = true;
+      else if(f.stringValue === 'false') obj[k] = false;
+      else {
+        try { obj[k] = JSON.parse(f.stringValue); }
+        catch(e){ obj[k] = f.stringValue; }
+      }
     }
-    else if(f.integerValue  !== undefined) obj[k] = parseInt(f.integerValue);
-    else if(f.doubleValue   !== undefined) obj[k] = parseFloat(f.doubleValue);
-    else if(f.booleanValue  !== undefined) obj[k] = f.booleanValue;
-    else if(f.nullValue     !== undefined) obj[k] = null;
   });
   return obj;
 }
@@ -1255,8 +1260,12 @@ async function adminSaveResult(){
   var gc=parseInt(col), gcon=parseInt(con);
   if(isNaN(gc)||isNaN(gcon)||gc<0||gcon<0){ showToast('⚠️ Marcador inválido', true); return; }
 
+  var btn = document.querySelector('[onclick="adminSaveResult()"]');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Guardando...'; }
+
   realResult = {
-    col: gc, con: gcon,
+    col: gc,
+    con: gcon,
     scorerCol: $('adminRealScorerCol').value.trim(),
     scorerCon: $('adminRealScorerCon').value.trim(),
     match: 'COL-POR',
@@ -1264,27 +1273,38 @@ async function adminSaveResult(){
     savedAt: Date.now()
   };
 
-  var ok = await fsSet('result', realResult);
-  if(!ok){ showToast('⚠️ Error guardando resultado', true); return; }
-
-  // Guardar también en localStorage como respaldo
+  // Guardar en localStorage PRIMERO (instantáneo, nunca falla)
   localStorage.setItem('pollaWC26_result_backup', JSON.stringify(realResult));
 
-  // Actualizar hero score
+  // Intentar guardar en Firebase
+  var ok = false;
+  try {
+    var r = await fetch(fsUrl('result'), {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(toFS(realResult))
+    });
+    ok = r.ok;
+    if(!ok) console.warn('Firebase error:', r.status, await r.text());
+  } catch(e){ console.warn('Firebase save error:', e); }
+
+  if(btn){ btn.disabled=false; btn.textContent='🏆 Guardar Resultado y Calcular Ganadores'; }
+
+  // Actualizar UI sin importar si Firebase funcionó
   $('heroScore').textContent = gc + ' — ' + gcon;
   var dot = $('liveStatusDot');
   dot.className = 'live-dot ft-dot';
   dot.textContent = '✅ PARTIDO FINALIZADO';
 
-  // Mostrar banner en admin
   var b = $('adminResultBanner');
   b.style.display = 'block';
-  b.textContent = '✅ Resultado guardado: Colombia ' + gc + '–' + gcon + ' Portugal';
+  b.innerHTML = (ok ? '✅ Guardado en Firebase + local' : '⚠️ Solo guardado localmente — Firebase sin respuesta') +
+    ': Colombia ' + gc + '–' + gcon + ' Portugal';
 
-  // Calcular y renderizar escalafón para todos
   fetchMatchData();
   renderResults();
-  showToast('🏆 Resultado guardado · Escalafón actualizado para todos');
+  blockBetForm();
+  showToast(ok ? '🏆 Resultado guardado · Escalafón calculado' : '⚠️ Guardado solo local · Intenta de nuevo', !ok);
 }
 
 async function clearResult(){
