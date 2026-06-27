@@ -340,8 +340,8 @@ input[type="number"]:focus{border-color:var(--amarillo);box-shadow:0 0 0 3px rgb
     <div id="matchEndedBanner" style="display:none;background:linear-gradient(135deg,rgba(231,76,60,.25),rgba(231,76,60,.1));border:2px solid rgba(231,76,60,.5);border-radius:16px;padding:20px 24px;margin-bottom:20px;align-items:center;gap:14px;flex-wrap:wrap">
       <span style="font-size:36px">⛔</span>
       <div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:#e74c3c;margin-bottom:4px">¡El Partido Ya Terminó!</div>
-        <div style="font-size:13px;color:#b0c4d8">No se aceptan más apuestas. Ve al Escalafón para ver los resultados.</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:#e74c3c;margin-bottom:4px" id="matchEndedTitle">¡El Partido Ya Comenzó!</div>
+        <div style="font-size:13px;color:#b0c4d8" id="matchEndedSub">No se aceptan más apuestas. Las inscripciones cerraron a las 6:30 PM COT.</div>
       </div>
     </div>
 
@@ -531,6 +531,8 @@ var pollInterval = null;
 const DIST       = [0.6, 0.3, 0.1];
 const COLORS     = ['#F5C518','#1DB954','#60a5fa','#f97316','#a78bfa','#fb7185','#34d399','#e879f9'];
 const VALOR_FIJO = 5000;
+// Kickoff Colombia vs Portugal: 27 Jun 2026 18:30 COT (23:30 UTC)
+const KICKOFF_TS = new Date('2026-06-27T23:30:00Z').getTime();
 
 const $ = id => document.getElementById(id);
 
@@ -545,6 +547,15 @@ function timeAgo(ts){
   if(d<3600) return 'hace '+Math.floor(d/60)+' min';
   if(d<86400) return 'hace '+Math.floor(d/3600)+'h';
   return 'hace '+Math.floor(d/86400)+' días';
+}
+function fmtTime(ts){
+  var d = new Date(ts);
+  var h = d.getHours().toString().padStart(2,'0');
+  var m = d.getMinutes().toString().padStart(2,'0');
+  var s = d.getSeconds().toString().padStart(2,'0');
+  var day = d.getDate().toString().padStart(2,'0');
+  var mon = (d.getMonth()+1).toString().padStart(2,'0');
+  return day+'/'+mon+' '+h+':'+m+':'+s;
 }
 function fmt(n){ return new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',minimumFractionDigits:0,maximumFractionDigits:0}).format(n); }
 function normalize(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'').trim(); }
@@ -654,11 +665,16 @@ function blockBetForm(){
 
 function showMatchEndedBanner(){
   var el = $('matchEndedBanner');
-  if(el){
-    el.style.display = 'flex';
-    setTimeout(function(){ el.style.display='none'; }, 4000);
-  }
-  showToast('⛔ ¡El partido ya terminó! No se aceptan más apuestas.', true);
+  var title = $('matchEndedTitle');
+  var sub = $('matchEndedSub');
+  var started = Date.now() >= KICKOFF_TS;
+  var finished = realResult && realResult.col !== undefined;
+  if(title) title.textContent = finished ? '¡El Partido Ya Terminó!' : '¡El Partido Ya Comenzó!';
+  if(sub) sub.textContent = finished
+    ? 'No se aceptan más apuestas. Ve al Escalafón para ver los resultados.'
+    : 'No se aceptan más apuestas. Las inscripciones cerraron a las 6:30 PM COT.';
+  if(el){ el.style.display='flex'; setTimeout(function(){ el.style.display='none'; },4000); }
+  showToast(finished ? '⛔ El partido ya terminó. Sin más apuestas.' : '⛔ El partido ya comenzó. Sin más apuestas.', true);
 }
 
 async function loadAll(){
@@ -720,6 +736,15 @@ async function loadAll(){
 //  POLLING — refresca cada 8 seg
 // ════════════════════════════════════
 function startPolling(){
+  // Auto-block at kickoff time if page is still open
+  var msToKickoff = KICKOFF_TS - Date.now();
+  if(msToKickoff > 0){
+    setTimeout(function(){
+      blockBetForm();
+      showToast('⛔ ¡Partido en curso! Las apuestas están cerradas.', true);
+    }, msToKickoff);
+  }
+
   clearInterval(pollInterval);
   pollInterval = setInterval(async function(){
     var betsDoc = await fsGet('bets');
@@ -852,7 +877,11 @@ function renderBote(){
 //  APOSTAR
 // ════════════════════════════════════
 async function placeBet(){
-  // Bloquear apuestas si el partido ya terminó
+  // Bloquear si el partido ya empezó o terminó
+  if(Date.now() >= KICKOFF_TS){
+    showMatchEndedBanner();
+    return;
+  }
   if(realResult && realResult.col !== undefined){
     showMatchEndedBanner();
     return;
@@ -905,7 +934,7 @@ function renderBets(){
   }
   // Solo mostrar nombre y hora — marcador oculto para generar intriga 🔒
   list.innerHTML=bets.map(function(b){
-    return '<div class="bet-card"><div class="bet-card-main"><div class="bet-user"><div class="avatar" style="background:'+getColor(b.name)+'">'+getInitials(b.name)+'</div><div><div class="user-name">'+b.name+'</div><div class="user-meta">'+timeAgo(b.ts)+' · '+fmt(b.valor||VALOR_FIJO)+'</div></div></div><div class="bet-score" style="filter:blur(6px);user-select:none;letter-spacing:2px;color:var(--gris)">🔒 ?–?</div></div></div>';
+    return '<div class="bet-card"><div class="bet-card-main"><div class="bet-user"><div class="avatar" style="background:'+getColor(b.name)+'">'+getInitials(b.name)+'</div><div><div class="user-name">'+b.name+'</div><div class="user-meta">'+fmtTime(b.ts)+' · '+fmt(b.valor||VALOR_FIJO)+'</div></div></div><div class="bet-score" style="filter:blur(6px);user-select:none;letter-spacing:2px;color:var(--gris)">🔒 ?–?</div></div></div>';
   }).join('');
   // Actualizar select de admin siempre
   populateDeleteSelect();
