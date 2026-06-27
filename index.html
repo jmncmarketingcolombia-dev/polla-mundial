@@ -650,13 +650,19 @@ async function loadAll(){
   }
 
   // Cargar resultado desde config
-  if(cfgDoc && cfgDoc.resultCol!==undefined && !cfgDoc.resultCleared){
+  // Debug: mostrar qué viene de Firebase
+  console.log('Config doc desde Firebase:', JSON.stringify(cfgDoc));
+  if(cfgDoc && cfgDoc.resultCol!==undefined && cfgDoc.resultCleared!==true && cfgDoc.resultCleared!==1){
     realResult = {
-      col:cfgDoc.resultCol, con:cfgDoc.resultCon,
-      scorerCol:cfgDoc.resultScorerCol||'',
-      scorerCon:cfgDoc.resultScorerCon||'',
+      col: parseInt(cfgDoc.resultCol),
+      con: parseInt(cfgDoc.resultCon),
+      scorerCol: cfgDoc.resultScorerCol||'',
+      scorerCon: cfgDoc.resultScorerCon||'',
       match:'COL-POR'
     };
+    console.log('Resultado cargado:', realResult);
+  } else {
+    console.log('No se cargó resultado. resultCol:', cfgDoc&&cfgDoc.resultCol, 'resultCleared:', cfgDoc&&cfgDoc.resultCleared);
   }
 
   // Limpiar apuestas prueba
@@ -701,7 +707,7 @@ function startPolling(){
     }
     // Revisar resultado en config
     var cd=await fsGet('config');
-    if(cd && cd.resultCol!==undefined && !cd.resultCleared && (!realResult||realResult.col===undefined)){
+    if(cd && cd.resultCol!==undefined && cd.resultCleared!==true && cd.resultCleared!==1 && (!realResult||realResult.col===undefined)){
       realResult={col:cd.resultCol,con:cd.resultCon,scorerCol:cd.resultScorerCol||'',scorerCon:cd.resultScorerCon||'',match:'COL-POR'};
       $('heroScore').textContent=realResult.col+' — '+realResult.con;
       fetchMatchData(); renderResults(); blockBetForm();
@@ -1036,12 +1042,13 @@ async function adminSaveResult(){
     match:'COL-POR'};
 
   // Guardar resultado DENTRO del doc config
+  // Guardar con resultCleared como número 0 (no boolean) para evitar problemas de tipo
   var ok=await fsSet('config',{
     base:ADMIN_BASE, match:'COL-POR', updatedAt:Date.now(),
     resultCol:gc, resultCon:gcon,
     resultScorerCol:realResult.scorerCol,
     resultScorerCon:realResult.scorerCon,
-    resultCleared:false, resultSavedAt:Date.now()
+    resultCleared:0, resultSavedAt:Date.now()
   });
 
   if(btn){btn.disabled=false;btn.textContent='🏆 Guardar Resultado y Calcular Ganadores';}
@@ -1064,7 +1071,7 @@ async function adminSaveResult(){
 async function clearResult(){
   if(!confirm('¿Borrar el resultado del partido?')) return;
   realResult=null;
-  await fsSet('config',{base:ADMIN_BASE,match:'COL-POR',resultCleared:true,updatedAt:Date.now()});
+  await fsSet('config',{base:ADMIN_BASE,match:'COL-POR',resultCleared:1,updatedAt:Date.now()});
   $('heroScore').textContent='? — ?';
   $('liveStatusDot').className='live-dot scheduled-dot';$('liveStatusDot').textContent='⏰ PRÓXIMO · Hoy 6:30 PM COT';
   $('resultActiveBanner').classList.add('hidden');
