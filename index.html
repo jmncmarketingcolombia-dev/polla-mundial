@@ -512,11 +512,9 @@ input[type="number"]:focus{border-color:var(--amarillo);box-shadow:0 0 0 3px rgb
 ════════════════════════════════════ -->
 <script>
 // ════════════════════════════════════
-//  CONFIG
+//  CONFIG — Cloudflare Worker KV
 // ════════════════════════════════════
-const FB_PROJECT = 'constructor-de-riqueza-1';
-const FB_BASE    = 'https://firestore.googleapis.com/v1/projects/'+FB_PROJECT+'/databases/(default)/documents';
-const COL_NAME   = 'polla_mundial';
+const WORKER_URL = 'https://polla-mundial.jmncmarketingcolombia.workers.dev';
 const VALOR_FIJO = 5000;
 const ADMIN_BASE = 140000;
 const KICKOFF_TS = new Date('2026-06-27T23:30:00Z').getTime();
@@ -565,59 +563,29 @@ function matchesScorer(pred, real){
 }
 
 // ════════════════════════════════════
-//  FIRESTORE REST
+//  CLOUDFLARE WORKER KV — Simple REST
 // ════════════════════════════════════
-function fsUrl(doc){ return FB_BASE+'/'+COL_NAME+'/'+doc; }
-
-function toFS(obj){
-  var fields={};
-  Object.keys(obj).forEach(function(k){
-    var v=obj[k];
-    if(v===null||v===undefined)      fields[k]={nullValue:null};
-    else if(typeof v==='boolean')    fields[k]={booleanValue:v};
-    else if(typeof v==='number')     fields[k]={integerValue:''+Math.round(v)};
-    else if(typeof v==='string')     fields[k]={stringValue:v};
-    else                             fields[k]={stringValue:JSON.stringify(v)};
-  });
-  return {fields:fields};
-}
-
-function fromFS(doc){
-  if(!doc||!doc.fields) return null;
-  var obj={};
-  Object.keys(doc.fields).forEach(function(k){
-    var f=doc.fields[k];
-    if(f.integerValue!==undefined)       obj[k]=parseInt(f.integerValue);
-    else if(f.doubleValue!==undefined)   obj[k]=parseFloat(f.doubleValue);
-    else if(f.booleanValue!==undefined)  obj[k]=f.booleanValue;
-    else if(f.nullValue!==undefined)     obj[k]=null;
-    else if(f.stringValue!==undefined){
-      try{ obj[k]=JSON.parse(f.stringValue); }
-      catch(e){ obj[k]=f.stringValue; }
-    }
-  });
-  return obj;
-}
-
-async function fsGet(doc){
+async function fsGet(key){
   try{
-    var r=await fetch(fsUrl(doc),{cache:'no-store'});
-    if(r.status===404) return null;
-    if(!r.ok){ console.warn('fsGet '+doc+' error '+r.status); return null; }
-    return fromFS(await r.json());
-  }catch(e){ console.warn('fsGet error',e); return null; }
+    var r = await fetch(WORKER_URL+'/'+key, {cache:'no-store'});
+    if(!r.ok){ console.warn('GET '+key+' error '+r.status); return null; }
+    var text = await r.text();
+    if(!text || text==='null') return null;
+    return JSON.parse(text);
+  }catch(e){ console.warn('GET error',e); return null; }
 }
 
-async function fsSet(doc, obj){
+async function fsSet(key, obj){
   try{
-    var r=await fetch(fsUrl(doc),{
-      method:'PATCH',
+    var r = await fetch(WORKER_URL+'/'+key, {
+      method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(toFS(obj))
+      body: JSON.stringify(obj)
     });
-    if(!r.ok){ console.warn('fsSet '+doc+' error '+r.status, await r.text()); return false; }
-    return true;
-  }catch(e){ console.warn('fsSet error',e); return false; }
+    if(!r.ok){ console.warn('POST '+key+' error '+r.status); return false; }
+    var res = await r.json();
+    return res.ok === true;
+  }catch(e){ console.warn('POST error',e); return false; }
 }
 
 // ════════════════════════════════════
