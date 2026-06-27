@@ -701,11 +701,26 @@ async function loadAll(){
     lastBetTs = betsDoc.updatedAt || 0;
   }
   // Solo cargar resultado si es del partido actual (Colombia vs Portugal)
-  if(resultDoc && resultDoc.col !== undefined && !resultDoc.cleared && resultDoc.match === 'COL-POR'){
+  if(resultDoc && resultDoc.col !== undefined && !resultDoc.cleared){
+    // Cargar resultado de Firebase
     realResult = resultDoc;
-  } else if(resultDoc && resultDoc.match !== 'COL-POR'){
-    // Limpiar resultado de partido anterior automáticamente
-    fsSet('result', {cleared: true, match: 'COL-COD-old'});
+    if(!realResult.match) realResult.match = 'COL-POR';
+    // Sincronizar respaldo local
+    localStorage.setItem('pollaWC26_result_backup', JSON.stringify(realResult));
+  } else {
+    // Firebase no tiene resultado — intentar recuperar del respaldo local
+    var backup = localStorage.getItem('pollaWC26_result_backup');
+    if(backup){
+      try{
+        var br = JSON.parse(backup);
+        if(br && br.col !== undefined && !br.cleared){
+          realResult = br;
+          // Re-sincronizar a Firebase
+          fsSet('result', realResult);
+          console.log('Resultado recuperado del respaldo local:', br.col, '-', br.con);
+        }
+      } catch(e){ console.warn('Error al leer respaldo:', e); }
+    }
   }
   if(configDoc && configDoc.base !== undefined){
     adminBase = configDoc.base || 0;
@@ -761,7 +776,7 @@ function startPolling(){
     }
     // También verificar resultado
     var resultDoc = await fsGet('result');
-    if(resultDoc && resultDoc.col !== undefined && !resultDoc.cleared && !realResult){
+    if(resultDoc && resultDoc.col !== undefined && !resultDoc.cleared && (!realResult || realResult.col === undefined)){
       realResult = resultDoc;
       $('heroScore').textContent = realResult.col + ' — ' + realResult.con;
       fetchMatchData();
@@ -790,7 +805,7 @@ function fetchMatchData(){
     ground:'Hard Rock Stadium · Miami, EE.UU.',
     score:null, goals1:[], goals2:[]
   };
-  if(realResult && realResult.col !== undefined && realResult.match === 'COL-POR'){
+  if(realResult && realResult.col !== undefined && !realResult.cleared){
     m.score = {ft:[realResult.col, realResult.con]};
     m.goals1 = (realResult.scorerCol||'').split(',').filter(function(s){return s.trim();}).map(function(s){return {name:s.trim(),min:''};});
     m.goals2 = (realResult.scorerCon||'').split(',').filter(function(s){return s.trim();}).map(function(s){return {name:s.trim(),min:''};});
@@ -989,7 +1004,7 @@ function renderResults(){
   var podiumSection=$('podiumSection'), noMsg=$('noResultMsg');
   var banner=$('resultActiveBanner'), autoB=$('autoFilledBanner'), tieBanner=$('tieBanner');
 
-  if(realResult && realResult.col !== undefined && realResult.match==='COL-POR'){
+  if(realResult && realResult.col !== undefined && !realResult.cleared){
     banner.classList.remove('hidden');
     var txt='Colombia '+realResult.col+' – '+realResult.con+' Portugal';
     if(realResult.scorerCol) txt+=' · 🇨🇴 '+realResult.scorerCol;
@@ -1244,11 +1259,16 @@ async function adminSaveResult(){
     col: gc, con: gcon,
     scorerCol: $('adminRealScorerCol').value.trim(),
     scorerCon: $('adminRealScorerCon').value.trim(),
-    match: 'COL-POR'
+    match: 'COL-POR',
+    cleared: false,
+    savedAt: Date.now()
   };
 
   var ok = await fsSet('result', realResult);
   if(!ok){ showToast('⚠️ Error guardando resultado', true); return; }
+
+  // Guardar también en localStorage como respaldo
+  localStorage.setItem('pollaWC26_result_backup', JSON.stringify(realResult));
 
   // Actualizar hero score
   $('heroScore').textContent = gc + ' — ' + gcon;
@@ -1270,7 +1290,8 @@ async function adminSaveResult(){
 async function clearResult(){
   if(!confirm('¿Borrar el resultado del partido?')) return;
   realResult = null;
-  await fsSet('result', {cleared: true});
+  localStorage.removeItem('pollaWC26_result_backup');
+  await fsSet('result', {cleared: true, clearedAt: Date.now()});
   $('heroScore').textContent = '? — ?';
   $('liveStatusDot').className = 'live-dot scheduled-dot';
   $('liveStatusDot').textContent = '⏰ PRÓXIMO · Hoy 6:30 PM COT';
