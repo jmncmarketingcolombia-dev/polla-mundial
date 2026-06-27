@@ -606,7 +606,7 @@ async function loadAll(){
   // CONFIG + BASE + RESULTADO
   adminBase = ADMIN_BASE; // siempre $140.000 fijo
   if(!cfgDoc || cfgDoc.base!==ADMIN_BASE){
-    // Forzar base correcta en Worker KV
+    // Forzar base correcta en Firebase
     var saveObj = {base:ADMIN_BASE, match:'COL-POR', updatedAt:Date.now()};
     if(cfgDoc && cfgDoc.resultCol!==undefined) Object.assign(saveObj, {
       resultCol:cfgDoc.resultCol, resultCon:cfgDoc.resultCon,
@@ -747,7 +747,6 @@ function calcBote(){ return bets.reduce(function(s,b){return s+(b.valor||VALOR_F
 
 function renderBote(){
   var total=calcBote();
-  // Siempre mostrar bote si hay base admin ($140.000)
   $('boteBanner').classList.remove('hidden');
   $('betsCount').classList.toggle('hidden',!bets.length);
   $('boteAmount').textContent=fmt(total);
