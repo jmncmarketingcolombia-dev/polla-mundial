@@ -630,15 +630,7 @@ async function loadAll(){
   } else {
   }
 
-  // Limpiar apuestas prueba
-  var cleaned=bets.filter(function(b){
-    var n=(b.name||'').toLowerCase();
-    return !n.includes('juan narva')&&!n.includes('prueba')&&!n.includes('test');
-  });
-  if(cleaned.length!==bets.length){
-    bets=cleaned;
-    fsSet('bets',{list:bets,updatedAt:Date.now()});
-  }
+  // Sin filtro de nombres — todas las apuestas son válidas
 
   renderBets();
   renderBote();
