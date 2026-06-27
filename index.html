@@ -661,8 +661,14 @@ async function loadAll(){
   var resultDoc = results[1];
   var configDoc = results[2];
 
-  // Base acumulada del partido anterior: $140.000
-  if(!configDoc || configDoc.base === undefined){ fsSet('config',{base:140000,updatedAt:Date.now()}); adminBase=140000; }
+  // Base acumulada: $140.000 (acumulado partido anterior $90.000 + base admin $50.000)
+  // Forzar base correcta para este partido si es menor a $140.000
+  if(!configDoc || configDoc.base === undefined || configDoc.base < 140000){
+    fsSet('config', {base:140000, updatedAt:Date.now()});
+    adminBase = 140000;
+  } else {
+    adminBase = configDoc.base;
+  }
 
   if(betsDoc && Array.isArray(betsDoc.list)){
     bets = betsDoc.list;
@@ -1164,7 +1170,7 @@ async function clearResult(){
   await fsSet('result', {cleared: true});
   $('heroScore').textContent = '? — ?';
   $('liveStatusDot').className = 'live-dot scheduled-dot';
-  $('liveStatusDot').textContent = '⏰ PRÓXIMO · Hoy 21:00 COT';
+  $('liveStatusDot').textContent = '⏰ PRÓXIMO · Hoy 6:30 PM COT';
   $('resultActiveBanner').classList.add('hidden');
   $('podiumSection').style.display = 'none';
   $('noResultMsg').classList.remove('hidden');
@@ -1180,7 +1186,7 @@ async function clearAllBets(){
   renderBets(); renderBote();
   $('heroScore').textContent='? — ?';
   $('liveStatusDot').className='live-dot scheduled-dot';
-  $('liveStatusDot').textContent='⏰ PRÓXIMO · Hoy 21:00 COT';
+  $('liveStatusDot').textContent='⏰ PRÓXIMO · Hoy 6:30 PM COT';
   showToast('🗑️ Apuestas borradas');
 }
 
