@@ -233,7 +233,7 @@ input[type="number"]:focus{border-color:var(--amarillo);box-shadow:0 0 0 3px rgb
         <div class="team"><span class="flag">🇵🇹</span><span class="team-name">Portugal</span></div>
       </div>
       <div class="match-meta" id="matchMeta">
-        📅 <span id="matchDate">Sáb 27 Jun 2026 · 19:30 COT</span><br>
+        📅 <span id="matchDate">Sáb 27 Jun 2026 · 6:30 PM COT</span><br>
         🏟️ <span id="matchStadium">Hard Rock Stadium · Miami, EE.UU.</span>
       </div>
       <div class="goals-ticker" id="goalsTicker" style="display:none"></div>
@@ -668,20 +668,20 @@ async function loadAll(){
     bets = betsDoc.list;
     lastBetTs = betsDoc.updatedAt || 0;
   }
-  // Nueva polla — ignorar resultado del partido anterior (Colombia vs Congo)
   // Solo cargar resultado si es del partido actual (Colombia vs Portugal)
   if(resultDoc && resultDoc.col !== undefined && !resultDoc.cleared && resultDoc.match === 'COL-POR'){
     realResult = resultDoc;
+  } else if(resultDoc && resultDoc.match !== 'COL-POR'){
+    // Limpiar resultado de partido anterior automáticamente
+    fsSet('result', {cleared: true, match: 'COL-COD-old'});
   }
   if(configDoc && configDoc.base !== undefined){
     adminBase = configDoc.base || 0;
   }
 
-  // Limpiar apuestas del partido anterior (Colombia vs Congo)
-  // Solo conservar apuestas del partido actual (COL-POR)
+  // Solo conservar apuestas del partido actual Colombia vs Portugal (COL-POR)
   var cleaned = bets.filter(function(b){
-    var n=(b.name||'').toLowerCase();
-    return !n.includes('juan narva') && !n.includes('prueba') && !n.includes('test') && b.match !== 'COL-COD';
+    return b.match === 'COL-POR';
   });
   if(cleaned.length !== bets.length){
     bets = cleaned;
@@ -745,14 +745,14 @@ function showSyncStatus(msg, type){
 var matchData = null;
 function fetchMatchData(){
   var m = {
-    team1:'Colombia', team2:'DR Congo',
+    team1:'Colombia', team2:'Portugal',
     ground:'Hard Rock Stadium · Miami, EE.UU.',
     score:null, goals1:[], goals2:[]
   };
-  if(realResult){
+  if(realResult && realResult.col !== undefined && realResult.match === 'COL-POR'){
     m.score = {ft:[realResult.col, realResult.con]};
-    m.goals1 = realResult.scorerCol ? [{name:realResult.scorerCol, minute:''}] : [];
-    m.goals2 = realResult.scorerCon ? [{name:realResult.scorerCon, minute:''}] : [];
+    m.goals1 = (realResult.scorerCol||'').split(',').filter(function(s){return s.trim();}).map(function(s){return {name:s.trim(),min:''};});
+    m.goals2 = (realResult.scorerCon||'').split(',').filter(function(s){return s.trim();}).map(function(s){return {name:s.trim(),min:''};});
   }
   matchData = m;
   updateHero(m);
@@ -769,20 +769,21 @@ function updateHero(m){
     dot.textContent='✅ PARTIDO FINALIZADO';
   } else {
     dot.className='live-dot scheduled-dot';
-    dot.textContent='⏰ PRÓXIMO · Hoy 19:30 COT';
+    dot.textContent='⏰ PRÓXIMO · Hoy 6:30 PM COT';
   }
   renderGoalsTicker(m);
 }
 
 function renderGoalsTicker(m){
   var ticker=$('goalsTicker');
-  var g1=(m.goals1||[]).map(function(g){return {name:g.name,min:g.minute||g.min,flag:'🇨🇴'};});
-  var g2=(m.goals2||[]).map(function(g){return {name:g.name,min:g.minute||g.min,flag:'🇵🇹'};});
-  var all=g1.concat(g2).sort(function(a,b){return parseInt(a.min)-parseInt(b.min);});
+  var g1=(m.goals1||[]).map(function(g){return {name:g.name,min:g.minute||g.min||'',flag:'🇨🇴'};});
+  var g2=(m.goals2||[]).map(function(g){return {name:g.name,min:g.minute||g.min||'',flag:'🇵🇹'};});
+  var all=g1.concat(g2).filter(function(g){return g.name;});
   if(!all.length){ticker.style.display='none';return;}
   ticker.style.display='flex';
   ticker.innerHTML=all.map(function(g){
-    return '<div class="goal-item"><span class="min">'+g.min+"'</span><span class=\"flag-sm\">"+g.flag+'</span><span class="scorer">⚽ '+g.name+'</span></div>';
+    var minTxt=g.min?g.min+"'":'';
+    return '<div class="goal-item">'+(minTxt?'<span class="min">'+minTxt+'</span>':'')+'<span class="flag-sm">'+g.flag+'</span><span class="scorer">⚽ '+g.name+'</span></div>';
   }).join('');
 }
 
