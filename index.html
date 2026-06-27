@@ -606,7 +606,7 @@ async function loadAll(){
   // CONFIG + BASE + RESULTADO
   adminBase = ADMIN_BASE; // siempre $140.000 fijo
   if(!cfgDoc || cfgDoc.base!==ADMIN_BASE){
-    // Forzar base correcta en Firebase
+    // Forzar base correcta en Worker KV
     var saveObj = {base:ADMIN_BASE, match:'COL-POR', updatedAt:Date.now()};
     if(cfgDoc && cfgDoc.resultCol!==undefined) Object.assign(saveObj, {
       resultCol:cfgDoc.resultCol, resultCon:cfgDoc.resultCon,
@@ -619,7 +619,6 @@ async function loadAll(){
 
   // Cargar resultado desde config
   // Debug: mostrar qué viene de Firebase
-  console.log('Config doc desde Firebase:', JSON.stringify(cfgDoc));
   if(cfgDoc && cfgDoc.resultCol!==undefined && cfgDoc.resultCleared!==true && cfgDoc.resultCleared!==1){
     realResult = {
       col: parseInt(cfgDoc.resultCol),
@@ -628,9 +627,7 @@ async function loadAll(){
       scorerCon: cfgDoc.resultScorerCon||'',
       match:'COL-POR'
     };
-    console.log('Resultado cargado:', realResult);
   } else {
-    console.log('No se cargó resultado. resultCol:', cfgDoc&&cfgDoc.resultCol, 'resultCleared:', cfgDoc&&cfgDoc.resultCleared);
   }
 
   // Limpiar apuestas prueba
@@ -749,10 +746,10 @@ function toggleScorers(){
 function calcBote(){ return bets.reduce(function(s,b){return s+(b.valor||VALOR_FIJO);},0)+adminBase; }
 
 function renderBote(){
-  var total=calcBote(), hasContent=bets.length>0||adminBase>0;
-  $('boteBanner').classList.toggle('hidden',!hasContent);
+  var total=calcBote();
+  // Siempre mostrar bote si hay base admin ($140.000)
+  $('boteBanner').classList.remove('hidden');
   $('betsCount').classList.toggle('hidden',!bets.length);
-  if(!hasContent) return;
   $('boteAmount').textContent=fmt(total);
   var baseTxt=adminBase>0?' · Base: '+fmt(adminBase):'';
   $('boteSub').textContent=bets.length+' participante'+(bets.length!==1?'s':'')+baseTxt;
